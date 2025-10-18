@@ -1,0 +1,90 @@
+<?php
+require_once('../config.php');
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Driver Login | Triple JH Chicken Trading</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body class="bg-light d-flex align-items-center" style="min-height: 100vh;">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-4 col-md-6">
+                <div class="card shadow-sm border-0 rounded-3 p-4">
+                    <div class="card-body">
+                        <h3 class="fw-semibold mb-1">Driver Login</h3>
+                        <p class="text-secondary mb-4">Access your delivery dashboard</p>
+
+                        <form action="driver_login_process.php" method="post" id="driverLoginForm">
+                            <div class="mb-3">
+                                <input type="email" class="form-control" id="email" name="email" placeholder="Email" required>
+                            </div>
+                            <div class="mb-3">
+                                <input type="password" class="form-control" id="password" name="password" placeholder="Password" required>
+                            </div>
+
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="remember" name="remember">
+                                        <label class="form-check-label" for="remember">Remember me</label>
+                                    </div>
+                                </div>
+                                <a href="#" class="text-secondary text-decoration-none small">Forgot Password?</a>
+                            </div>
+
+                            <div class="d-grid mb-3">
+                                <button type="submit" class="btn btn-dark btn-lg">Login</button>
+                            </div>
+
+                            <p class="text-center text-secondary mb-0">
+                                Don’t have a driver account? <a href="driver_register.php" class="text-decoration-none fw-semibold">Register here</a>
+                            </p>
+
+                            <br>
+                            <p class="text-center text-secondary mb-0">
+                                <a href="../index.php" class="text-decoration-none fw-semibold">Back to home</a>
+                            </p>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        $(function() {
+            $('#driverLoginForm').on('submit', function(e) {
+                e.preventDefault();
+                $.ajax({
+                    type: 'POST',
+                    url: 'driver_login_process.php',
+                    data: $(this).serialize(),
+                    success: function(data) {
+                        if (data.trim() === 'Login successful') {
+                            Swal.fire('Success', 'Welcome back, driver!', 'success').then(() => {
+                                window.location.href = '../driver_dashboard.php'; // Redirect to driver dashboard
+                            });
+                        } else {
+                            Swal.fire('Error', data, 'error');
+                        }
+                    },
+                    error: function() {
+                        Swal.fire('Error', 'Something went wrong.', 'error');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+
+</html>

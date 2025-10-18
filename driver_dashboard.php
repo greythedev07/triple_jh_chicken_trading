@@ -1,0 +1,591 @@
+<?php
+session_start();
+require_once('config.php');
+
+if (!isset($_SESSION['driver_id'])) {
+    header('Location: drivers/driver_login.php');
+    exit;
+}
+
+$driver_id = $_SESSION['driver_id'];
+
+// Pagination settings
+$items_per_page = 10;
+$current_page_pickup = isset($_GET['pickup_page']) ? max(1, (int)$_GET['pickup_page']) : 1;
+$current_page_delivering = isset($_GET['delivering_page']) ? max(1, (int)$_GET['delivering_page']) : 1;
+$current_page_history = isset($_GET['history_page']) ? max(1, (int)$_GET['history_page']) : 1;
+
+$offset_pickup = ($current_page_pickup - 1) * $items_per_page;
+$offset_delivering = ($current_page_delivering - 1) * $items_per_page;
+$offset_history = ($current_page_history - 1) * $items_per_page;
+
+// Fetch driver info
+$stmt = $db->prepare("SELECT name, vehicle_type, phone FROM drivers WHERE id = ?");
+$stmt->execute([$driver_id]);
+$driver = $stmt->fetch(PDO::FETCH_ASSOC);
+
+// 🟢 Exclude cancelled and picked up orders from stats
+$pending_pickups = $db->query("
+    SELECT COUNT(*) FROM pending_delivery 
+    WHERE driver_id = $driver_id 
+    AND status NOT IN ('Cancelled','cancelled','to be delivered','out for delivery','assigned')
+")->fetchColumn();
+
+$ongoing_deliveries = $db->query("
+    SELECT COUNT(*) FROM to_be_delivered 
+    WHERE driver_id = $driver_id
+    AND status != 'delivered'
+")->fetchColumn();
+
+$completed_deliveries = $db->query("
+    SELECT COUNT(*) FROM history_of_delivery 
+    WHERE driver_id = $driver_id
+")->fetchColumn();
+
+// 🟢 Fetch pickup list (exclude cancelled and picked up orders) with pagination
+$stmt = $db->prepare("
+    SELECT pd.*, CONCAT(u.firstname, ' ', u.lastname) AS customer_name, u.phonenumber AS customer_phone
+    FROM pending_delivery pd
+    JOIN users u ON pd.user_id = u.id
+    WHERE pd.driver_id = ?
+    AND pd.status NOT IN ('Cancelled','cancelled','to be delivered','out for delivery','assigned')
+    ORDER BY pd.id DESC
+    LIMIT $items_per_page OFFSET $offset_pickup
+");
+$stmt->execute([$driver_id]);
+$pickups = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Get total count for pickup pagination
+$total_pickups = $db->prepare("
+    SELECT COUNT(*) FROM pending_delivery pd
+    WHERE pd.driver_id = ?
+    AND pd.status NOT IN ('Cancelled','cancelled','to be delivered','out for delivery','assigned')
+");
+$total_pickups->execute([$driver_id]);
+$total_pickups_count = $total_pickups->fetchColumn();
+$total_pickup_pages = ceil($total_pickups_count / $items_per_page);
+
+// Fetch ongoing deliveries (exclude completed ones) with pagination
+$stmt = $db->prepare("
+    SELECT tbd.*, CONCAT(u.firstname, ' ', u.lastname) AS customer_name, u.phonenumber AS customer_phone, pd.total_amount
+    FROM to_be_delivered tbd
+    JOIN users u ON tbd.user_id = u.id
+    LEFT JOIN pending_delivery pd ON pd.id = tbd.pending_delivery_id
+    WHERE tbd.driver_id = ?
+    AND tbd.status != 'delivered'
+    ORDER BY tbd.id DESC
+    LIMIT $items_per_page OFFSET $offset_delivering
+");
+$stmt->execute([$driver_id]);
+$ongoing = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Get total count for delivering pagination
+$total_delivering = $db->prepare("
+    SELECT COUNT(*) FROM to_be_delivered tbd
+    WHERE tbd.driver_id = ?
+    AND tbd.status != 'delivered'
+");
+$total_delivering->execute([$driver_id]);
+$total_delivering_count = $total_delivering->fetchColumn();
+$total_delivering_pages = ceil($total_delivering_count / $items_per_page);
+
+// Fetch delivery history with pagination
+$stmt = $db->prepare("
+    SELECT hod.*, tbd.pending_delivery_id, CONCAT(u.firstname, ' ', u.lastname) AS customer_name
+    FROM history_of_delivery hod
+    JOIN users u ON hod.user_id = u.id
+    LEFT JOIN to_be_delivered tbd ON tbd.id = hod.to_be_delivered_id
+    WHERE hod.driver_id = ?
+    ORDER BY hod.id DESC
+    LIMIT $items_per_page OFFSET $offset_history
+");
+$stmt->execute([$driver_id]);
+$history = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Get total count for history pagination
+$total_history = $db->prepare("
+    SELECT COUNT(*) FROM history_of_delivery hod
+    WHERE hod.driver_id = ?
+");
+$total_history->execute([$driver_id]);
+$total_history_count = $total_history->fetchColumn();
+$total_history_pages = ceil($total_history_count / $items_per_page);
+?>
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Driver Dashboard | Triple JH Chicken Trading</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        body {
+            background-color: #f8f9fb;
+            font-family: "Inter", "Segoe UI", sans-serif;
+            color: #222;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        .topbar {
+            background: #000;
+            color: #fff;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .topbar .logo {
+            font-weight: 700;
+        }
+
+        .dashboard-container {
+            display: flex;
+            flex-grow: 1;
+            gap: 20px;
+            padding: 30px;
+        }
+
+        .sidebar {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            width: 250px;
+            height: fit-content;
+            padding: 20px;
+        }
+
+        .sidebar h5 {
+            font-weight: 700;
+            margin-bottom: 15px;
+        }
+
+        .sidebar a {
+            display: block;
+            color: #333;
+            text-decoration: none;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+            transition: 0.2s;
+        }
+
+        .sidebar a:hover,
+        .sidebar a.active {
+            font-weight: 600;
+            color: #0d6efd;
+        }
+
+        .content {
+            flex-grow: 1;
+        }
+
+        section {
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        section.active {
+            display: block;
+            opacity: 1;
+        }
+
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            background: #fff;
+            padding: 25px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        .stats-card {
+            text-align: center;
+            transition: 0.2s;
+            cursor: pointer;
+        }
+
+        .stats-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+        }
+
+        .stats-card .display-6 {
+            color: #0d6efd;
+            font-weight: 700;
+        }
+
+        footer {
+            background: #111;
+            color: #ddd;
+            padding: 2rem 0;
+            text-align: center;
+            margin-top: auto;
+        }
+
+        .pagination {
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .pagination .page-link {
+            color: #000;
+            border-color: #ddd;
+        }
+
+        .pagination .page-link:hover {
+            background-color: #f8f9fa;
+            border-color: #ddd;
+        }
+
+        .pagination .page-item.active .page-link {
+            background-color: #000;
+            border-color: #000;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="topbar">
+        <div class="logo">Triple JH — Driver Panel</div>
+        <div>
+            <span class="me-3">👋 Welcome, <?= htmlspecialchars($driver['name']) ?></span>
+            <a href="logout.php" class="text-light ms-3">Logout</a>
+        </div>
+    </div>
+
+    <div class="dashboard-container">
+        <div class="sidebar">
+            <h5>Navigation</h5>
+            <a href="#overview" class="active" onclick="showSection('overview')">Overview</a>
+            <a href="#pickup" onclick="showSection('pickup')">Pickups</a>
+            <a href="#delivering" onclick="showSection('delivering')">Delivering</a>
+            <a href="#history" onclick="showSection('history')">Delivery History</a>
+            <a href="drivers/driver_settings.php">Driver Settings</a>
+        </div>
+
+        <div class="content">
+            <section id="overview" class="active">
+                <h3 class="fw-bold mb-4">Dashboard Overview</h3>
+                <div class="row g-4">
+                    <div class="col-md-4">
+                        <div class="card stats-card" onclick="showSection('pickup')">
+                            <h5>Pending Pickups</h5>
+                            <p class="display-6"><?= $pending_pickups ?></p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card stats-card" onclick="showSection('delivering')">
+                            <h5>Ongoing Deliveries</h5>
+                            <p class="display-6"><?= $ongoing_deliveries ?></p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card stats-card" onclick="showSection('history')">
+                            <h5>Completed Deliveries</h5>
+                            <p class="display-6"><?= $completed_deliveries ?></p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="pickup">
+                <h3 class="fw-bold mb-4">Pending Pickups</h3>
+                <div class="card">
+                    <?php if (count($pickups) > 0): ?>
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Customer</th>
+                                    <th>Phone</th>
+                                    <th>Delivery Address</th>
+                                    <th>Total Amount</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($pickups as $p): ?>
+                                    <tr>
+                                        <td>#<?= htmlspecialchars($p['id']) ?></td>
+                                        <td><?= htmlspecialchars($p['customer_name']) ?></td>
+                                        <td><?= htmlspecialchars($p['customer_phone'] ?? '') ?></td>
+                                        <td><?= htmlspecialchars($p['delivery_address'] ?? 'N/A') ?></td>
+                                        <td>₱<?= number_format((float)($p['total_amount'] ?? 0), 2) ?></td>
+                                        <?php
+                                        $rs = strtolower($p['status'] ?? '');
+                                        $label = $rs === '' ? 'Pending' : ($rs === 'pending' ? 'Pending' : (($rs === 'to be delivered' || $rs === 'out for delivery' || $rs === 'assigned') ? 'Delivering' : ($rs === 'delivered' ? 'Delivered' : ($rs === 'cancelled' || $rs === 'canceled' ? 'Cancelled' : ucfirst($rs)))));
+                                        $badge = $label === 'Pending' ? 'bg-warning' : ($label === 'Delivering' ? 'bg-info' : ($label === 'Delivered' ? 'bg-success' : 'bg-secondary'));
+                                        ?>
+                                        <td><span class="badge <?= $badge ?>"><?= htmlspecialchars($label) ?></span></td>
+                                        <td>
+                                            <button class="btn btn-sm btn-dark" data-bs-toggle="modal" data-bs-target="#pickupModal" data-order-id="<?= (int)$p['id'] ?>">Pick up</button>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+
+                        <?php if ($total_pickup_pages > 1): ?>
+                            <nav aria-label="Pickup pagination">
+                                <ul class="pagination">
+                                    <?php if ($current_page_pickup > 1): ?>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?pickup_page=<?= $current_page_pickup - 1 ?>">Previous</a>
+                                        </li>
+                                    <?php endif; ?>
+
+                                    <?php for ($i = max(1, $current_page_pickup - 2); $i <= min($total_pickup_pages, $current_page_pickup + 2); $i++): ?>
+                                        <li class="page-item <?= $i == $current_page_pickup ? 'active' : '' ?>">
+                                            <a class="page-link" href="?pickup_page=<?= $i ?>"><?= $i ?></a>
+                                        </li>
+                                    <?php endfor; ?>
+
+                                    <?php if ($current_page_pickup < $total_pickup_pages): ?>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?pickup_page=<?= $current_page_pickup + 1 ?>">Next</a>
+                                        </li>
+                                    <?php endif; ?>
+                                </ul>
+                            </nav>
+                        <?php endif; ?>
+                    <?php else: ?><p class="text-secondary mb-0">No pending pickups at the moment.</p><?php endif; ?>
+                </div>
+            </section>
+
+            <section id="delivering">
+                <h3 class="fw-bold mb-4">Ongoing Deliveries</h3>
+                <div class="card">
+                    <?php if (count($ongoing) > 0): ?>
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Customer</th>
+                                    <th>Phone</th>
+                                    <th>Delivery Address</th>
+                                    <th>To Pay</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($ongoing as $d): ?>
+                                    <tr>
+                                        <td>#<?= htmlspecialchars($d['id']) ?></td>
+                                        <td><?= htmlspecialchars($d['customer_name']) ?></td>
+                                        <td><?= htmlspecialchars($d['customer_phone'] ?? '') ?></td>
+                                        <td><?= htmlspecialchars($d['delivery_address'] ?? 'N/A') ?></td>
+                                        <td>₱<?= number_format((float)($d['total_amount'] ?? 0), 2) ?></td>
+                                        <?php
+                                        $rs2 = strtolower($d['status'] ?? '');
+                                        $label2 = $rs2 === '' ? 'Delivering' : (($rs2 === 'to be delivered' || $rs2 === 'out for delivery' || $rs2 === 'assigned' || $rs2 === 'pending' || $rs2 === 'picked_up') ? 'Delivering' : ($rs2 === 'delivered' ? 'Delivered' : ($rs2 === 'cancelled' || $rs2 === 'canceled' ? 'Cancelled' : ucfirst($rs2))));
+                                        $badge2 = $label2 === 'Delivering' ? 'bg-info' : ($label2 === 'Delivered' ? 'bg-success' : ($label2 === 'Cancelled' ? 'bg-secondary' : 'bg-warning'));
+                                        ?>
+                                        <td><span class="badge <?= $badge2 ?>"><?= htmlspecialchars($label2) ?></span></td>
+                                        <td>
+                                            <button class="btn btn-sm btn-dark" data-bs-toggle="modal" data-bs-target="#completeModal" data-delivery-id="<?= (int)$d['id'] ?>">Complete</button>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+
+                        <?php if ($total_delivering_pages > 1): ?>
+                            <nav aria-label="Delivering pagination">
+                                <ul class="pagination">
+                                    <?php if ($current_page_delivering > 1): ?>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?delivering_page=<?= $current_page_delivering - 1 ?>">Previous</a>
+                                        </li>
+                                    <?php endif; ?>
+
+                                    <?php for ($i = max(1, $current_page_delivering - 2); $i <= min($total_delivering_pages, $current_page_delivering + 2); $i++): ?>
+                                        <li class="page-item <?= $i == $current_page_delivering ? 'active' : '' ?>">
+                                            <a class="page-link" href="?delivering_page=<?= $i ?>"><?= $i ?></a>
+                                        </li>
+                                    <?php endfor; ?>
+
+                                    <?php if ($current_page_delivering < $total_delivering_pages): ?>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?delivering_page=<?= $current_page_delivering + 1 ?>">Next</a>
+                                        </li>
+                                    <?php endif; ?>
+                                </ul>
+                            </nav>
+                        <?php endif; ?>
+                    <?php else: ?><p class="text-secondary mb-0">No ongoing deliveries currently.</p><?php endif; ?>
+                </div>
+            </section>
+
+            <section id="history">
+                <h3 class="fw-bold mb-4">Delivery History</h3>
+                <div class="card">
+                    <?php if (count($history) > 0): ?>
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Customer</th>
+                                    <th>Destination</th>
+                                    <th>Date Delivered</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($history as $h): ?>
+                                    <tr>
+                                        <td>#<?= htmlspecialchars($h['pending_delivery_id'] ?? $h['to_be_delivered_id']) ?></td>
+                                        <td><?= htmlspecialchars($h['customer_name']) ?></td>
+                                        <td><?= htmlspecialchars($h['delivery_address'] ?? 'N/A') ?></td>
+                                        <td><?= htmlspecialchars($h['delivery_time'] ?? '') ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+
+                        <?php if ($total_history_pages > 1): ?>
+                            <nav aria-label="History pagination">
+                                <ul class="pagination">
+                                    <?php if ($current_page_history > 1): ?>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?history_page=<?= $current_page_history - 1 ?>">Previous</a>
+                                        </li>
+                                    <?php endif; ?>
+
+                                    <?php for ($i = max(1, $current_page_history - 2); $i <= min($total_history_pages, $current_page_history + 2); $i++): ?>
+                                        <li class="page-item <?= $i == $current_page_history ? 'active' : '' ?>">
+                                            <a class="page-link" href="?history_page=<?= $i ?>"><?= $i ?></a>
+                                        </li>
+                                    <?php endfor; ?>
+
+                                    <?php if ($current_page_history < $total_history_pages): ?>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?history_page=<?= $current_page_history + 1 ?>">Next</a>
+                                        </li>
+                                    <?php endif; ?>
+                                </ul>
+                            </nav>
+                        <?php endif; ?>
+                    <?php else: ?><p class="text-secondary mb-0">No completed deliveries yet.</p><?php endif; ?>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <small>© <?= date('Y') ?> Triple JH Chicken Trading — All rights reserved.</small>
+        </div>
+    </footer>
+
+    <!-- Pickup Modal -->
+    <div class="modal fade" id="pickupModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="POST" action="drivers/driver_pickup_process.php" enctype="multipart/form-data">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Confirm Pickup</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" name="pending_delivery_id" id="pickup_pending_id">
+                        <div class="mb-3">
+                            <label class="form-label">Driver Name</label>
+                            <input type="text" class="form-control" value="<?= htmlspecialchars($driver['name']) ?>" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Driver ID</label>
+                            <input type="text" class="form-control" value="<?= (int)$driver_id ?>" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Driver Phone Number</label>
+                            <input type="text" class="form-control" value="<?= htmlspecialchars($driver['phone'] ?? '') ?>" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Pickup Proof Photo</label>
+                            <input type="file" name="pickup_proof" class="form-control" accept="image/*" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-dark">Confirm Pickup</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Complete Modal -->
+    <div class="modal fade" id="completeModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="POST" action="drivers/driver_delivery_process.php" enctype="multipart/form-data">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Complete Delivery</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" name="to_be_delivered_id" id="complete_delivery_id">
+                        <div class="mb-3">
+                            <label class="form-label">Payment Received (₱)</label>
+                            <input type="number" step="0.01" min="0" name="payment_received" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Change Given (₱)</label>
+                            <input type="number" step="0.01" min="0" name="change_given" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Proof of Delivery Photo</label>
+                            <input type="file" name="proof_image" class="form-control" accept="image/*" required>
+                        </div>
+                        <input type="hidden" name="delivery_time" value="<?= date('Y-m-d H:i:s') ?>">
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-dark">Submit</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function showSection(id) {
+            document.querySelectorAll('.content section').forEach(s => s.classList.remove('active'));
+            const target = document.getElementById(id);
+            if (target) target.classList.add('active');
+            document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+            const activeLink = document.querySelector(`.sidebar a[href="#${id}"]`);
+            if (activeLink) activeLink.classList.add('active');
+        }
+
+        // Populate pickup modal with order id
+        const pickupModal = document.getElementById('pickupModal');
+        if (pickupModal) {
+            pickupModal.addEventListener('show.bs.modal', function(event) {
+                const button = event.relatedTarget;
+                const orderId = button?.getAttribute('data-order-id');
+                const input = document.getElementById('pickup_pending_id');
+                if (input && orderId) input.value = orderId;
+            });
+        }
+
+        // Populate complete modal with delivery id
+        const completeModal = document.getElementById('completeModal');
+        if (completeModal) {
+            completeModal.addEventListener('show.bs.modal', function(event) {
+                const button = event.relatedTarget;
+                const deliveryId = button?.getAttribute('data-delivery-id');
+                const input = document.getElementById('complete_delivery_id');
+                if (input && deliveryId) input.value = deliveryId;
+            });
+        }
+    </script>
+</body>
+
+</html>
