@@ -69,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $deleteTbdItems = $db->prepare("DELETE FROM to_be_delivered_items WHERE to_be_delivered_id = ?");
         $deleteTbdItems->execute([$to_be_delivered_id]);
 
-        // Remove from to_be_delivered
+        // Remove from to_be_delivered (now safe since we removed the problematic foreign key constraint)
         $deleteTbd = $db->prepare("DELETE FROM to_be_delivered WHERE id = ?");
         $deleteTbd->execute([$to_be_delivered_id]);
 

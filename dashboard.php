@@ -11,6 +11,11 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = $_SESSION['user_id'];
 
+// Pagination settings
+$items_per_page = 12; // Number of products per page
+$current_page = max(1, (int)($_GET['page'] ?? 1));
+$offset = ($current_page - 1) * $items_per_page;
+
 // Sorting logic
 $sortOptions = [
   'newest' => 'id DESC',
@@ -26,15 +31,32 @@ $orderBy = $sortOptions[$sort] ?? 'id DESC';
 $search = trim($_GET['search'] ?? '');
 
 try {
+  // Build the base query
+  $baseQuery = "SELECT id, name, price, stock, image FROM products";
+  $countQuery = "SELECT COUNT(*) FROM products";
+  $whereClause = "";
+  $params = [];
+
   if ($search !== '') {
-    $stmt = $db->prepare("SELECT id, name, price, stock, image FROM products WHERE name LIKE ? ORDER BY $orderBy");
-    $stmt->execute(["%$search%"]);
-  } else {
-    $stmt = $db->query("SELECT id, name, price, stock, image FROM products ORDER BY $orderBy");
+    $whereClause = " WHERE name LIKE ?";
+    $params[] = "%$search%";
   }
+
+  // Get total count for pagination
+  $countStmt = $db->prepare($countQuery . $whereClause);
+  $countStmt->execute($params);
+  $total_products = (int)$countStmt->fetchColumn();
+  $total_pages = ceil($total_products / $items_per_page);
+
+  // Get products for current page
+  $productsQuery = $baseQuery . $whereClause . " ORDER BY $orderBy LIMIT $items_per_page OFFSET $offset";
+  $stmt = $db->prepare($productsQuery);
+  $stmt->execute($params);
   $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
   $products = [];
+  $total_products = 0;
+  $total_pages = 0;
   $dbError = $e->getMessage();
 }
 
@@ -74,6 +96,15 @@ try {
       /* adds space before footer */
     }
 
+    footer {
+      background: #000;
+      color: #fff;
+      padding: 1.5rem 0;
+      text-align: center;
+      margin-top: auto;
+      flex-shrink: 0;
+    }
+
     .navbar {
       background-color: #000;
     }
@@ -81,6 +112,24 @@ try {
     .navbar .nav-link,
     .navbar-brand {
       color: #fff !important;
+    }
+
+    .cart-link {
+      position: relative;
+    }
+
+    .cart-badge {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      background: #ff3b30;
+      color: #fff;
+      font-size: 0.7rem;
+      padding: 2px 6px;
+      border-radius: 999px;
+      min-width: 18px;
+      text-align: center;
+      line-height: 1.2;
     }
 
     .hero-section {
@@ -207,37 +256,45 @@ try {
       margin-top: auto;
     }
 
-    .floating-cart {
-      position: fixed;
-      bottom: 30px;
-      right: 30px;
-      background: #fff;
-      color: #222;
-      border-radius: 50%;
-      width: 56px;
-      height: 56px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
-      cursor: pointer;
-      transition: 0.2s;
-      z-index: 999;
+
+    /* Pagination styling */
+    .pagination {
+      margin: 0;
     }
 
-    .floating-cart:hover {
-      transform: scale(1.07);
+    .pagination .page-link {
+      color: #000;
+      border: 1px solid #dee2e6;
+      padding: 0.5rem 0.75rem;
+      margin: 0 2px;
+      border-radius: 6px;
+      text-decoration: none;
+      transition: all 0.2s ease;
     }
 
-    .cart-badge {
-      position: absolute;
-      top: -6px;
-      right: -6px;
-      background: #ff3b30;
+    .pagination .page-link:hover {
+      background-color: #f8f9fa;
+      border-color: #000;
+      color: #000;
+    }
+
+    .pagination .page-item.active .page-link {
+      background-color: #000;
+      border-color: #000;
       color: #fff;
-      font-size: 0.7rem;
-      padding: 3px 6px;
-      border-radius: 999px;
+    }
+
+    .pagination .page-item.disabled .page-link {
+      color: #6c757d;
+      background-color: #fff;
+      border-color: #dee2e6;
+      cursor: not-allowed;
+    }
+
+    .pagination .page-item.disabled .page-link:hover {
+      background-color: #fff;
+      border-color: #dee2e6;
+      color: #6c757d;
     }
   </style>
 </head>
@@ -249,8 +306,9 @@ try {
       <div class="collapse navbar-collapse">
         <ul class="navbar-nav ms-auto">
           <li class="nav-item"><a class="nav-link" href="dashboard.php">Shop</a></li>
-          <li class="nav-item"><a class="nav-link" href="carts/cart.php">Cart</a></li>
-          <li class="nav-item"><a class="nav-link active" href="orders/orders.php">Orders</a></li>
+          <li class="nav-item"><a class="nav-link cart-link" href="carts/cart.php">Cart <span id="cartBadge" class="cart-badge" style="<?= $cartCount > 0 ? '' : 'display:none' ?>"><?= $cartCount > 0 ? $cartCount : '' ?></span></a></li>
+          <li class="nav-item"><a class="nav-link" href="orders/orders.php">Orders</a></li>
+          <li class="nav-item"><a class="nav-link" href="useraccounts/settings.php">Settings</a></li>
           <li class="nav-item"><a class="nav-link" href="logout.php">Logout</a></li>
         </ul>
       </div>
@@ -310,6 +368,63 @@ try {
         </div>
       <?php endforeach; ?>
     </div>
+
+    <?php if ($total_pages > 1): ?>
+      <nav aria-label="Product pagination" class="mt-5">
+        <ul class="pagination justify-content-center">
+          <?php if ($current_page > 1): ?>
+            <li class="page-item">
+              <a class="page-link" href="?page=<?= $current_page - 1 ?>&sort=<?= urlencode($sort) ?>&search=<?= urlencode($search) ?>">Previous</a>
+            </li>
+          <?php endif; ?>
+
+          <?php
+          // Calculate page range to display
+          $start_page = max(1, $current_page - 2);
+          $end_page = min($total_pages, $current_page + 2);
+
+          // Show first page if not in range
+          if ($start_page > 1): ?>
+            <li class="page-item">
+              <a class="page-link" href="?page=1&sort=<?= urlencode($sort) ?>&search=<?= urlencode($search) ?>">1</a>
+            </li>
+            <?php if ($start_page > 2): ?>
+              <li class="page-item disabled"><span class="page-link">...</span></li>
+            <?php endif; ?>
+          <?php endif; ?>
+
+          <?php for ($i = $start_page; $i <= $end_page; $i++): ?>
+            <li class="page-item <?= $i === $current_page ? 'active' : '' ?>">
+              <a class="page-link" href="?page=<?= $i ?>&sort=<?= urlencode($sort) ?>&search=<?= urlencode($search) ?>"><?= $i ?></a>
+            </li>
+          <?php endfor; ?>
+
+          <?php
+          // Show last page if not in range
+          if ($end_page < $total_pages): ?>
+            <?php if ($end_page < $total_pages - 1): ?>
+              <li class="page-item disabled"><span class="page-link">...</span></li>
+            <?php endif; ?>
+            <li class="page-item">
+              <a class="page-link" href="?page=<?= $total_pages ?>&sort=<?= urlencode($sort) ?>&search=<?= urlencode($search) ?>"><?= $total_pages ?></a>
+            </li>
+          <?php endif; ?>
+
+          <?php if ($current_page < $total_pages): ?>
+            <li class="page-item">
+              <a class="page-link" href="?page=<?= $current_page + 1 ?>&sort=<?= urlencode($sort) ?>&search=<?= urlencode($search) ?>">Next</a>
+            </li>
+          <?php endif; ?>
+        </ul>
+
+        <div class="text-center mt-3">
+          <small class="text-muted">
+            Showing <?= count($products) ?> of <?= $total_products ?> products
+            (Page <?= $current_page ?> of <?= $total_pages ?>)
+          </small>
+        </div>
+      </nav>
+    <?php endif; ?>
   </main>
 
   <footer>
@@ -318,10 +433,6 @@ try {
     </div>
   </footer>
 
-  <div class="floating-cart" onclick="window.location='carts/cart.php'">
-    🛒
-    <span id="floatingBadge" class="cart-badge" style="<?= $cartCount ? '' : 'display:none' ?>"><?= $cartCount ?: '' ?></span>
-  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script>
@@ -336,8 +447,13 @@ try {
         .then(res => res.json())
         .then(data => {
           if (data.status === 'success') {
-            document.getElementById('floatingBadge').innerText = data.cart_count;
-            document.getElementById('floatingBadge').style.display = '';
+            // Update cart badge
+            const cartBadge = document.getElementById('cartBadge');
+            if (cartBadge) {
+              cartBadge.innerText = data.cart_count;
+              cartBadge.style.display = data.cart_count > 0 ? '' : 'none';
+            }
+
             Swal.fire({
               icon: 'success',
               title: 'Added!',

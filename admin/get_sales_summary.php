@@ -11,14 +11,19 @@ if (!isset($_SESSION['admin_id'])) {
 try {
     // Get total revenue from completed deliveries
     $totalRevenue = $db->query("
-        SELECT COALESCE(SUM(total_amount), 0) as total
+        SELECT COALESCE(SUM(hdi.quantity * hdi.price), 0) as total
         FROM history_of_delivery hod
-        JOIN to_be_delivered tbd ON hod.to_be_delivered_id = tbd.id
-        JOIN pending_delivery pd ON tbd.pending_delivery_id = pd.id
+        JOIN history_of_delivery_items hdi ON hod.id = hdi.history_id
     ")->fetchColumn();
 
-    // Get total orders
-    $totalOrders = $db->query("SELECT COUNT(*) FROM pending_delivery")->fetchColumn();
+    // Get total orders (both active and completed)
+    $totalOrders = $db->query("
+        SELECT COUNT(*) FROM (
+            SELECT id FROM pending_delivery
+            UNION
+            SELECT to_be_delivered_id as id FROM history_of_delivery
+        ) as combined_orders
+    ")->fetchColumn();
 
     // Calculate average order value
     $averageOrder = $totalOrders > 0 ? $totalRevenue / $totalOrders : 0;

@@ -21,6 +21,9 @@ $error_message = $_GET['error'] ?? 'An unknown error occurred during checkout.';
         body {
             background-color: #f5f6f7;
             font-family: "Inter", "Segoe UI", sans-serif;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
         }
 
         .navbar {
@@ -37,6 +40,16 @@ $error_message = $_GET['error'] ?? 'An unknown error occurred during checkout.';
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
             text-align: center;
+            flex: 1;
+        }
+
+        footer {
+            background: #000;
+            color: #fff;
+            padding: 1.5rem 0;
+            text-align: center;
+            margin-top: auto;
+            flex-shrink: 0;
         }
 
         .error-icon {
@@ -87,6 +100,12 @@ $error_message = $_GET['error'] ?? 'An unknown error occurred during checkout.';
             <a href="../dashboard.php" class="btn-retry ms-2">Continue Shopping</a>
         </div>
     </div>
+
+    <footer>
+        <div class="container">
+            <small>© <?= date('Y') ?> Triple JH Chicken Trading — All rights reserved.</small>
+        </div>
+    </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>

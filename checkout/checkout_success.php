@@ -100,9 +100,9 @@ try {
             background: #000;
             color: #fff;
             text-align: center;
-            padding: 1rem;
-            font-size: 0.9rem;
+            padding: 1.5rem 0;
             margin-top: auto;
+            flex-shrink: 0;
         }
     </style>
 </head>
@@ -159,7 +159,11 @@ try {
                 </div> <?php else: ?> <p class="text-muted mt-4">No recent order found.</p> <?php endif; ?> <a href="../dashboard.php" class="btn btn-dark w-100 mt-3">Return to Dashboard</a>
         </div>
     </main>
-    <footer> &copy; <?= date('Y') ?> Triple JH Chicken Trading — All rights reserved. </footer>
+    <footer>
+        <div class="container">
+            <small>© <?= date('Y') ?> Triple JH Chicken Trading — All rights reserved.</small>
+        </div>
+    </footer>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 

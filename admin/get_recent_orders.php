@@ -10,10 +10,16 @@ if (!isset($_SESSION['admin_id'])) {
 
 try {
     $stmt = $db->prepare("
-        SELECT pd.id, pd.status, CONCAT(u.firstname, ' ', u.lastname) AS customer_name, pd.date_requested
-        FROM pending_delivery pd
-        JOIN users u ON pd.user_id = u.id
-        ORDER BY pd.date_requested DESC
+        SELECT id, status, customer_name, date_requested FROM (
+            SELECT pd.id, pd.status, CONCAT(u.firstname, ' ', u.lastname) AS customer_name, pd.date_requested
+            FROM pending_delivery pd
+            JOIN users u ON pd.user_id = u.id
+            UNION ALL
+            SELECT hod.to_be_delivered_id as id, 'delivered' as status, CONCAT(u.firstname, ' ', u.lastname) AS customer_name, hod.created_at as date_requested
+            FROM history_of_delivery hod
+            JOIN users u ON hod.user_id = u.id
+        ) as combined_orders
+        ORDER BY date_requested DESC
         LIMIT 5
     ");
     $stmt->execute();

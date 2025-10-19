@@ -9,6 +9,15 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = $_SESSION['user_id'];
 
+// Fetch cart count
+try {
+  $cartStmt = $db->prepare("SELECT SUM(quantity) AS count FROM cart WHERE user_id = ?");
+  $cartStmt->execute([$user_id]);
+  $cartCount = (int)$cartStmt->fetchColumn();
+} catch (PDOException $e) {
+  $cartCount = 0;
+}
+
 try {
   // Fetch all items in user's cart
   $stmt = $db->prepare("
@@ -69,6 +78,24 @@ foreach ($cartItems as $item) {
     .navbar .nav-link,
     .navbar-brand {
       color: #fff !important;
+    }
+
+    .cart-link {
+      position: relative;
+    }
+
+    .cart-badge {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      background: #ff3b30;
+      color: #fff;
+      font-size: 0.7rem;
+      padding: 2px 6px;
+      border-radius: 999px;
+      min-width: 18px;
+      text-align: center;
+      line-height: 1.2;
     }
 
     .cart-container {
@@ -180,11 +207,12 @@ foreach ($cartItems as $item) {
     }
 
     footer {
-      background: #111;
-      color: #ddd;
-      padding: 2rem 0;
+      background: #000;
+      color: #fff;
+      padding: 1.5rem 0;
       text-align: center;
       margin-top: auto;
+      flex-shrink: 0;
     }
 
     @media(max-width: 768px) {
@@ -209,8 +237,9 @@ foreach ($cartItems as $item) {
       <div class="collapse navbar-collapse">
         <ul class="navbar-nav ms-auto">
           <li class="nav-item"><a class="nav-link" href="../dashboard.php">Shop</a></li>
-          <li class="nav-item"><a class="nav-link" href="../carts/cart.php">Cart</a></li>
-          <li class="nav-item"><a class="nav-link active" href="../orders/orders.php">Orders</a></li>
+          <li class="nav-item"><a class="nav-link cart-link active" href="../carts/cart.php">Cart <span id="cartBadge" class="cart-badge" style="<?= $cartCount > 0 ? '' : 'display:none' ?>"><?= $cartCount > 0 ? $cartCount : '' ?></span></a></li>
+          <li class="nav-item"><a class="nav-link" href="../orders/orders.php">Orders</a></li>
+          <li class="nav-item"><a class="nav-link" href="../useraccounts/settings.php">Settings</a></li>
           <li class="nav-item"><a class="nav-link" href="../logout.php">Logout</a></li>
         </ul>
       </div>

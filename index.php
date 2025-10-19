@@ -9,11 +9,27 @@ if (isset($_SESSION['user_id'])) {
 
 require_once('config.php');
 
+// Check for account deletion success message
+$account_deleted = isset($_GET['account_deleted']) && $_GET['account_deleted'] == '1';
+
+// Pagination settings
+$items_per_page = 12; // Number of products per page
+$current_page = max(1, (int)($_GET['page'] ?? 1));
+$offset = ($current_page - 1) * $items_per_page;
+
 try {
-  $stmt = $db->query("SELECT id, name, price, stock, image FROM products ORDER BY id DESC");
+  // Get total count for pagination
+  $countStmt = $db->query("SELECT COUNT(*) FROM products");
+  $total_products = (int)$countStmt->fetchColumn();
+  $total_pages = ceil($total_products / $items_per_page);
+
+  // Get products for current page
+  $stmt = $db->query("SELECT id, name, price, stock, image FROM products ORDER BY id DESC LIMIT $items_per_page OFFSET $offset");
   $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
   $products = [];
+  $total_products = 0;
+  $total_pages = 0;
   $dbError = $e->getMessage();
 }
 ?>
@@ -157,8 +173,8 @@ try {
 
     footer {
       flex-shrink: 0;
-      background: #111;
-      color: #ddd;
+      background: #000;
+      color: #fff;
       padding: 1.5rem 0;
       text-align: center;
     }
@@ -171,6 +187,46 @@ try {
       .product-image {
         height: 160px;
       }
+    }
+
+    /* Pagination styling */
+    .pagination {
+      margin: 0;
+    }
+
+    .pagination .page-link {
+      color: #000;
+      border: 1px solid #dee2e6;
+      padding: 0.5rem 0.75rem;
+      margin: 0 2px;
+      border-radius: 6px;
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+
+    .pagination .page-link:hover {
+      background-color: #f8f9fa;
+      border-color: #000;
+      color: #000;
+    }
+
+    .pagination .page-item.active .page-link {
+      background-color: #000;
+      border-color: #000;
+      color: #fff;
+    }
+
+    .pagination .page-item.disabled .page-link {
+      color: #6c757d;
+      background-color: #fff;
+      border-color: #dee2e6;
+      cursor: not-allowed;
+    }
+
+    .pagination .page-item.disabled .page-link:hover {
+      background-color: #fff;
+      border-color: #dee2e6;
+      color: #6c757d;
     }
   </style>
 </head>
@@ -192,6 +248,15 @@ try {
         </div>
       </div>
     </nav>
+
+    <?php if ($account_deleted): ?>
+      <div class="container mt-4">
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+          <strong>Account Deleted Successfully!</strong> Your account and all associated data have been permanently removed.
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+      </div>
+    <?php endif; ?>
 
     <!-- Hero -->
     <section class="hero-section">
@@ -244,6 +309,63 @@ try {
           </div>
         <?php endforeach; ?>
       </div>
+
+      <?php if ($total_pages > 1): ?>
+        <nav aria-label="Product pagination" class="mt-5">
+          <ul class="pagination justify-content-center">
+            <?php if ($current_page > 1): ?>
+              <li class="page-item">
+                <a class="page-link" href="?page=<?= $current_page - 1 ?>">Previous</a>
+              </li>
+            <?php endif; ?>
+
+            <?php
+            // Calculate page range to display
+            $start_page = max(1, $current_page - 2);
+            $end_page = min($total_pages, $current_page + 2);
+
+            // Show first page if not in range
+            if ($start_page > 1): ?>
+              <li class="page-item">
+                <a class="page-link" href="?page=1">1</a>
+              </li>
+              <?php if ($start_page > 2): ?>
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+              <?php endif; ?>
+            <?php endif; ?>
+
+            <?php for ($i = $start_page; $i <= $end_page; $i++): ?>
+              <li class="page-item <?= $i === $current_page ? 'active' : '' ?>">
+                <a class="page-link" href="?page=<?= $i ?>"><?= $i ?></a>
+              </li>
+            <?php endfor; ?>
+
+            <?php
+            // Show last page if not in range
+            if ($end_page < $total_pages): ?>
+              <?php if ($end_page < $total_pages - 1): ?>
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+              <?php endif; ?>
+              <li class="page-item">
+                <a class="page-link" href="?page=<?= $total_pages ?>"><?= $total_pages ?></a>
+              </li>
+            <?php endif; ?>
+
+            <?php if ($current_page < $total_pages): ?>
+              <li class="page-item">
+                <a class="page-link" href="?page=<?= $current_page + 1 ?>">Next</a>
+              </li>
+            <?php endif; ?>
+          </ul>
+
+          <div class="text-center mt-3">
+            <small class="text-muted">
+              Showing <?= count($products) ?> of <?= $total_products ?> products
+              (Page <?= $current_page ?> of <?= $total_pages ?>)
+            </small>
+          </div>
+        </nav>
+      <?php endif; ?>
     </main>
   </div>
 
