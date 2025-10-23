@@ -636,7 +636,41 @@ foreach ($cartItems as $item) {
                     </div>
                     <div class="card p-4 mt-4">
                         <h5 class="fw-bold mb-3">Payment Method</h5>
-                        <div class="form-check"> <input class="form-check-input" type="radio" name="payment_method" id="cod" value="Cash on Delivery" checked> <label class="form-check-label" for="cod">Cash on Delivery</label> </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="radio" name="payment_method" id="cod" value="Cash on Delivery" checked>
+                            <label class="form-check-label" for="cod">Cash on Delivery</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="payment_method" id="gcash" value="GCash">
+                            <label class="form-check-label" for="gcash">GCash (Pay via QR Code)</label>
+                        </div>
+
+                        <!-- GCash Payment Section (Hidden by default) -->
+                        <div id="gcash-payment-section" class="mt-4" style="display: none;">
+                            <div class="alert alert-info">
+                                <h6 class="fw-bold mb-2">GCash Payment Instructions:</h6>
+                                <ol class="mb-3">
+                                    <li>Scan the QR code below with your GCash app</li>
+                                    <li>Enter the exact amount: <strong>₱<span id="gcash-amount"><?= number_format($total, 2) ?></span></strong></li>
+                                    <li>Complete the payment in your GCash app</li>
+                                    <li>Copy the reference number from your GCash transaction</li>
+                                    <li>Paste the reference number in the field below</li>
+                                </ol>
+
+                                <!-- QR Code Display -->
+                                <div class="text-center mb-3">
+                                    <img src="../uploads/qr_codes/gcash_qr_sample.png" alt="GCash QR Code" class="img-fluid" style="max-width: 200px; border: 1px solid #ddd; border-radius: 8px;">
+                                    <p class="small text-muted mt-2">Scan this QR code with your GCash app</p>
+                                </div>
+
+                                <!-- Reference Number Input -->
+                                <div class="mb-3">
+                                    <label for="gcash_reference" class="form-label fw-bold">GCash Reference Number <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="gcash_reference" name="gcash_reference" placeholder="Enter your GCash reference number">
+                                    <div class="form-text">You can find this in your GCash app after completing the payment</div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div> <!-- Order Summary -->
                 <div class="col-lg-5">
@@ -652,6 +686,57 @@ foreach ($cartItems as $item) {
     <footer>
         <div class="container"> <small>© <?= date('Y') ?> Triple JH Chicken Trading — All rights reserved.</small> </div>
     </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Handle payment method toggle
+        document.addEventListener('DOMContentLoaded', function() {
+            const codRadio = document.getElementById('cod');
+            const gcashRadio = document.getElementById('gcash');
+            const gcashSection = document.getElementById('gcash-payment-section');
+            const gcashReferenceInput = document.getElementById('gcash_reference');
+            const gcashAmountSpan = document.getElementById('gcash-amount');
+            const totalAmount = <?= $total ?>;
+
+            // Update GCash amount display
+            gcashAmountSpan.textContent = totalAmount.toFixed(2);
+
+            function togglePaymentMethod() {
+                if (gcashRadio.checked) {
+                    gcashSection.style.display = 'block';
+                    gcashReferenceInput.required = true;
+                } else {
+                    gcashSection.style.display = 'none';
+                    gcashReferenceInput.required = false;
+                    gcashReferenceInput.value = '';
+                }
+            }
+
+            codRadio.addEventListener('change', togglePaymentMethod);
+            gcashRadio.addEventListener('change', togglePaymentMethod);
+
+            // Form validation for GCash
+            document.querySelector('form').addEventListener('submit', function(e) {
+                if (gcashRadio.checked) {
+                    const reference = gcashReferenceInput.value.trim();
+                    if (!reference) {
+                        e.preventDefault();
+                        alert('Please enter your GCash reference number.');
+                        gcashReferenceInput.focus();
+                        return false;
+                    }
+
+                    // Basic validation for reference number format
+                    if (reference.length < 8) {
+                        e.preventDefault();
+                        alert('Please enter a valid GCash reference number.');
+                        gcashReferenceInput.focus();
+                        return false;
+                    }
+                }
+            });
+        });
+    </script>
 </body>
 
 </html>

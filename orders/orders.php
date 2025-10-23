@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once('../config.php');
+require_once('../includes/order_helper.php');
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: ../index.php");
@@ -23,6 +24,7 @@ try {
     $stmt = $db->prepare("
         SELECT 
             pd.id AS order_id,
+            pd.order_number,
             pd.payment_method,
             pd.status,
             pd.delivery_address,
@@ -43,7 +45,8 @@ try {
     $completedStmt = $db->prepare("
         SELECT 
             h.id AS order_id,
-            'COD' AS payment_method,
+            h.order_number,
+            h.payment_method,
             'delivered' AS status,
             h.delivery_address,
             (SELECT SUM(hdi.quantity * hdi.price) FROM history_of_delivery_items hdi WHERE hdi.history_id = h.id) AS total_amount,
@@ -302,7 +305,7 @@ try {
                             <div class="order-card">
                                 <div class="order-header">
                                     <div>
-                                        <div class="fw-bold">Order #<?= htmlspecialchars($oid) ?></div>
+                                        <div class="fw-bold">Order #<?= htmlspecialchars($order['order_number'] ? formatOrderNumber($order['order_number']) : $oid) ?></div>
                                         <small class="text-muted"><?= date("F j, Y, g:i a", strtotime($order['date_requested'])) ?></small>
                                     </div>
                                     <div>
@@ -353,7 +356,7 @@ try {
                                 <div class="modal-dialog modal-dialog-centered modal-lg">
                                     <div class="modal-content">
                                         <div class="modal-header">
-                                            <h5 class="modal-title">Order #<?= $oid ?> Details</h5>
+                                            <h5 class="modal-title">Order #<?= htmlspecialchars($order['order_number'] ? formatOrderNumber($order['order_number']) : $oid) ?> Details</h5>
                                             <button type="button" class="btn-close" data-bs-dismiss="modal"
                                                 aria-label="Close"></button>
                                         </div>
@@ -404,7 +407,7 @@ try {
                             <div class="order-card">
                                 <div class="order-header">
                                     <div>
-                                        <div class="fw-bold">Order #<?= htmlspecialchars($oid) ?></div>
+                                        <div class="fw-bold">Order #<?= htmlspecialchars($order['order_number'] ? formatOrderNumber($order['order_number']) : $oid) ?></div>
                                         <small class="text-muted"><?= date("F j, Y, g:i a", strtotime($order['date_requested'])) ?></small>
                                     </div>
                                     <div>
@@ -440,7 +443,7 @@ try {
                                 <div class="modal-dialog modal-dialog-centered modal-lg">
                                     <div class="modal-content">
                                         <div class="modal-header">
-                                            <h5 class="modal-title">Order #<?= $oid ?> Details</h5>
+                                            <h5 class="modal-title">Order #<?= htmlspecialchars($order['order_number'] ? formatOrderNumber($order['order_number']) : $oid) ?> Details</h5>
                                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                         </div>
                                         <div class="modal-body">
@@ -450,7 +453,7 @@ try {
                                                     <p><strong>Order ID:</strong> #<?= $oid ?></p>
                                                     <p><strong>Date:</strong> <?= date("F j, Y, g:i a", strtotime($order['date_requested'])) ?></p>
                                                     <p><strong>Status:</strong> <span class="badge bg-success">Delivered</span></p>
-                                                    <p><strong>Payment Method:</strong> <?= htmlspecialchars($order['payment_method'] === 'COD' ? 'Cash on Delivery' : $order['payment_method']) ?></p>
+                                                    <p><strong>Payment Method:</strong> <?= htmlspecialchars($order['payment_method'] === 'COD' ? 'Cash on Delivery' : ($order['payment_method'] === 'GCash' ? 'GCash' : $order['payment_method'])) ?></p>
                                                 </div>
                                                 <div class="col-md-6">
                                                     <h6>Delivery Information</h6>

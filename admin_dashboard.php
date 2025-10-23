@@ -142,6 +142,7 @@ $admin = $stmt->fetch(PDO::FETCH_ASSOC);
       <a href="#overview" class="active" onclick="showSection('overview')">Dashboard Overview</a>
       <a href="#inventory" onclick="showSection('inventory')">Inventory Management</a>
       <a href="#deliveries" onclick="showSection('deliveries')">Order Management</a>
+      <a href="#gcash-verification" onclick="showSection('gcash-verification')">GCash Verification</a>
       <a href="#drivers" onclick="showSection('drivers')">Driver Management</a>
       <a href="#users" onclick="showSection('users')">User Management</a>
       <a href="#analytics" onclick="showSection('analytics')">Analytics & Reports</a>
@@ -262,6 +263,34 @@ $admin = $stmt->fetch(PDO::FETCH_ASSOC);
               </tr>
             </thead>
             <tbody id="deliveryTable"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- GCASH VERIFICATION SECTION -->
+      <section id="gcash-verification" style="display:none;">
+        <h3 class="fw-bold mb-4">GCash Payment Verification</h3>
+        <div class="alert alert-info">
+          <i class="bi bi-info-circle"></i>
+          <strong>Instructions:</strong> Review GCash payments and verify them using the reference numbers provided by customers.
+          Only verify payments after confirming the transaction with the customer.
+        </div>
+        <div class="card">
+          <table class="table align-middle">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Order ID</th>
+                <th>Customer</th>
+                <th>Contact</th>
+                <th>Reference No.</th>
+                <th>Amount</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="gcashTable"></tbody>
           </table>
         </div>
       </section>
@@ -391,6 +420,7 @@ $admin = $stmt->fetch(PDO::FETCH_ASSOC);
 
       // Load data based on section
       if (id === 'deliveries') loadDeliveries();
+      else if (id === 'gcash-verification') loadGCashOrders();
       else if (id === 'drivers') loadDrivers();
       else if (id === 'users') loadUsers();
       else if (id === 'analytics') loadAnalytics();
@@ -517,7 +547,7 @@ $admin = $stmt->fetch(PDO::FETCH_ASSOC);
             const s = rawStatus.toLowerCase();
             const statusLabel = s === '' ? 'Pending' :
               (s === 'pending' ? 'Pending' :
-                (s === 'to be delivered' || s === 'out for delivery' || s === 'assigned' || s === 'picked_up' ? 'Delivering' :
+                (s === 'to be delivered' || s === 'out for delivery' || s === 'picked_up' ? 'Delivering' :
                   (s === 'delivered' ? 'Delivered' :
                     (s === 'cancelled' || s === 'canceled' ? 'Cancelled' : rawStatus))));
             const badge = statusLabel === 'Pending' ? 'bg-warning' :
@@ -530,7 +560,11 @@ $admin = $stmt->fetch(PDO::FETCH_ASSOC);
             table.innerHTML += `
               <tr>
                 <td>${i + 1}</td>
-                <td>${d.id}</td>
+                <td>${d.order_number ? d.order_number.replace(/^(TJH-)(\d{4})(\d{2})(\d{2})-(\d{4})$/, '$1$2-$3-$4-$5') : `
+            #$ {
+              d.id
+            }
+            `}</td>
                 <td>${d.customer_name || 'N/A'}</td>
                 <td>${d.delivery_address ? d.delivery_address.substring(0, 50) + '...' : 'N/A'}</td>
                 <td>${pm}</td>
@@ -573,6 +607,100 @@ $admin = $stmt->fetch(PDO::FETCH_ASSOC);
             }
           });
         });
+    }
+
+    // Load GCash Orders
+    function loadGCashOrders() {
+      fetch('admin/fetch_gcash_orders.php')
+        .then(res => res.json())
+        .then(data => {
+          const table = document.getElementById('gcashTable');
+          table.innerHTML = '';
+          if (data.orders && data.orders.length > 0) {
+            data.orders.forEach((order, i) => {
+              const statusBadge = order.payment_status === 'pending' ?
+                '<span class="badge bg-warning">Pending</span>' :
+                '<span class="badge bg-danger">Failed</span>';
+
+              const actions = order.payment_status === 'pending' ?
+                `<button class="btn btn-success btn-sm me-2" onclick="verifyGCashPayment(${order.id}, 'verify')">
+                  <i class="bi bi-check-circle"></i> Verify
+                </button>
+                <button class="btn btn-danger btn-sm" onclick="verifyGCashPayment(${order.id}, 'reject')">
+                  <i class="bi bi-x-circle"></i> Reject
+                </button>` :
+                `<button class="btn btn-success btn-sm" onclick="verifyGCashPayment(${order.id}, 'verify')">
+                  <i class="bi bi-check-circle"></i> Verify
+                </button>`;
+
+              table.innerHTML += `
+                 <tr>
+                   <td>${i + 1}</td>
+                   <td>${order.order_number ? order.order_number.replace(/^(TJH-)(\d{4})(\d{2})(\d{2})-(\d{4})$/, '$1$2-$3-$4-$5') : `
+              #$ {
+                order.id
+              }
+              `}</td>
+                  <td>${order.firstname} ${order.lastname}</td>
+                  <td>
+                    <small>${order.email}<br>${order.phonenumber}</small>
+                  </td>
+                  <td><code>${order.gcash_reference}</code></td>
+                  <td>₱${parseFloat(order.total_amount).toFixed(2)}</td>
+                  <td>${new Date(order.date_requested).toLocaleDateString()}</td>
+                  <td>${statusBadge}</td>
+                  <td>${actions}</td>
+                </tr>
+              `;
+            });
+          } else {
+            table.innerHTML = '<tr><td colspan="9" class="text-center text-muted">No GCash orders pending verification</td></tr>';
+          }
+        })
+        .catch(err => {
+          console.error('Error loading GCash orders:', err);
+          document.getElementById('gcashTable').innerHTML = '<tr><td colspan="9" class="text-center text-danger">Error loading data</td></tr>';
+        });
+    }
+
+    // Verify GCash Payment
+    function verifyGCashPayment(orderId, action) {
+      const actionText = action === 'verify' ? 'verify' : 'reject';
+      const actionColor = action === 'verify' ? 'success' : 'danger';
+
+      Swal.fire({
+        title: `${actionText.charAt(0).toUpperCase() + actionText.slice(1)} Payment?`,
+        text: `Are you sure you want to ${actionText} this GCash payment?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: action === 'verify' ? '#198754' : '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: `Yes, ${actionText}!`,
+        cancelButtonText: 'Cancel'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          fetch('admin/verify_gcash_payment.php', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+              },
+              body: `pending_id=${orderId}&action=${action}`
+            })
+            .then(r => r.json())
+            .then(res => {
+              if (res.status === 'success') {
+                Swal.fire('Success!', res.message, 'success');
+                loadGCashOrders();
+              } else {
+                Swal.fire('Error', res.message, 'error');
+              }
+            })
+            .catch(err => {
+              console.error('Error:', err);
+              Swal.fire('Error', 'An error occurred while processing the request', 'error');
+            });
+        }
+      });
     }
 
     // Cancel Order
@@ -658,16 +786,23 @@ $admin = $stmt->fetch(PDO::FETCH_ASSOC);
             container.innerHTML = '<p class="text-muted">No recent orders</p>';
             return;
           }
-          container.innerHTML = data.map(order => `
+          container.innerHTML = data.map(order => {
+            // Format order number for display
+            const orderDisplay = order.order_number ?
+              order.order_number.replace(/^(TJH-)(\d{4})(\d{2})(\d{2})-(\d{4})$/, '$1$2-$3-$4-$5') :
+              `#${order.id}`;
+
+            return `
             <div class="d-flex justify-content-between align-items-center mb-3 p-2 border rounded">
               <div>
-                <strong>Order #${order.id}</strong>
+                <strong>Order ${orderDisplay}</strong>
                 <small class="text-muted d-block">${order.customer_name}</small>
                 <small class="text-muted">${new Date(order.date_requested).toLocaleDateString()}</small>
               </div>
               <span class="badge ${order.status === 'pending' ? 'bg-warning' : 'bg-info'}">${order.status}</span>
             </div>
-          `).join('');
+          `;
+          }).join('');
         });
 
       // Load low stock alerts

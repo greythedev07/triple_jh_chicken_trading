@@ -13,11 +13,13 @@ try {
     $stmt = $db->query("
         SELECT 
             pd.id,
+            pd.order_number,
             pd.user_id,
             pd.delivery_address,
             pd.payment_method,
             pd.status,
             pd.total_amount,
+            pd.date_requested,
             CONCAT(u.firstname, ' ', u.lastname) AS customer_name,
             d.name AS driver_name
         FROM pending_delivery pd

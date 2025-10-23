@@ -1,5 +1,6 @@
 <?php session_start();
 require_once('../config.php');
+require_once('../includes/order_helper.php');
 if (!isset($_SESSION['user_id'])) {
     header("Location: ../index.php");
     exit;
@@ -7,11 +8,29 @@ if (!isset($_SESSION['user_id'])) {
 $user_id = $_SESSION['user_id'];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $payment_method = trim($_POST['payment_method'] ?? '');
+    $gcash_reference = trim($_POST['gcash_reference'] ?? '');
+
     // Step 1: Normalize payment method to stored code
     if (strcasecmp($payment_method, 'Cash on Delivery') === 0 || strtoupper($payment_method) === 'COD') {
         $payment_method = 'COD';
+        $payment_status = 'verified'; // COD payments are automatically verified
+    } elseif (strcasecmp($payment_method, 'GCash') === 0) {
+        $payment_method = 'GCash';
+        $payment_status = 'pending'; // GCash payments need admin verification
+
+        // Validate GCash reference number
+        if (empty($gcash_reference)) {
+            header("Location: checkout_failed.php?error=" . urlencode("GCash reference number is required."));
+            exit;
+        }
+
+        if (strlen($gcash_reference) < 8) {
+            header("Location: checkout_failed.php?error=" . urlencode("Invalid GCash reference number format."));
+            exit;
+        }
     } else {
         $payment_method = 'COD';
+        $payment_status = 'verified';
     }
     $firstname = trim($_POST['firstname'] ?? '');
     $lastname = trim($_POST['lastname'] ?? '');
@@ -64,13 +83,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        // Step 5: Choose driver with lightest load
-        $driverStmt = $db->query(" SELECT id FROM drivers ORDER BY ( SELECT COUNT(*) FROM pending_delivery WHERE driver_id = drivers.id AND status = 'pending' ) ASC LIMIT 1 ");
-        $assignedDriver = $driverStmt->fetchColumn() ?: NULL;
+        // Step 5: Choose driver with lightest load (only for COD payments)
+        $assignedDriver = NULL;
+        if ($payment_method === 'COD') {
+            $driverStmt = $db->query(" SELECT id FROM drivers ORDER BY ( SELECT COUNT(*) FROM pending_delivery WHERE driver_id = drivers.id AND status = 'pending' ) ASC LIMIT 1 ");
+            $assignedDriver = $driverStmt->fetchColumn() ?: NULL;
+        }
 
-        // Step 6: Create pending delivery header
-        $stmt = $db->prepare(" INSERT INTO pending_delivery (user_id, driver_id, payment_method, status, delivery_address, total_amount, date_requested) VALUES (?, ?, ?, 'pending', ?, ?, NOW()) ");
-        $stmt->execute([$user_id, $assignedDriver, $payment_method, $full_address, $total]);
+        // Step 6: Generate order number and create pending delivery header
+        $orderNumber = generateOrderNumber($db);
+        $stmt = $db->prepare(" INSERT INTO pending_delivery (order_number, user_id, driver_id, payment_method, payment_status, gcash_reference, status, delivery_address, total_amount, date_requested) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, NOW()) ");
+        $stmt->execute([$orderNumber, $user_id, $assignedDriver, $payment_method, $payment_status, $gcash_reference, $full_address, $total]);
         $pending_delivery_id = $db->lastInsertId();
         // Step 7: Copy cart items to delivery items
         $stmt = $db->prepare(" INSERT INTO pending_delivery_items (pending_delivery_id, product_id, quantity, price) VALUES (?, ?, ?, ?) ");

@@ -1,5 +1,6 @@
 <?php session_start();
 require_once('../config.php');
+require_once('../includes/order_helper.php');
 if (!isset($_SESSION['user_id'])) {
     header("Location: ../index.php");
     exit;
@@ -7,7 +8,7 @@ if (!isset($_SESSION['user_id'])) {
 $user_id = $_SESSION['user_id'];
 
 try {
-    $stmt = $db->prepare(" SELECT id, total_amount, delivery_address, payment_method, status, date_requested FROM pending_delivery WHERE user_id = ? ORDER BY id DESC LIMIT 1 ");
+    $stmt = $db->prepare(" SELECT id, order_number, total_amount, delivery_address, payment_method, payment_status, gcash_reference, status, date_requested FROM pending_delivery WHERE user_id = ? ORDER BY id DESC LIMIT 1 ");
     $stmt->execute([$user_id]);
     $order = $stmt->fetch(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
@@ -124,35 +125,47 @@ try {
         <div class="success-card">
             <div class="success-icon">✅</div>
             <h1>Order Placed Successfully!</h1>
-            <p class="text-muted">Thank you for your purchase. Your order is now being processed.</p> <?php if ($order): ?> <div class="order-summary mt-4">
-                    <p><strong>Order ID:</strong> <?= htmlspecialchars($order['id']) ?></p>
+            <?php if ($order && $order['payment_method'] === 'GCash'): ?>
+                <p class="text-muted">Thank you for your purchase! Your GCash payment is pending verification.</p>
+                <div class="alert alert-warning">
+                    <strong>Important:</strong> Your order will be processed after we verify your GCash payment.
+                    You will receive a confirmation once payment is verified.
+                </div>
+            <?php else: ?>
+                <p class="text-muted">Thank you for your purchase. Your order is now being processed.</p>
+            <?php endif; ?> <?php if ($order): ?> <div class="order-summary mt-4">
+                    <p><strong>Order Number:</strong> <?= htmlspecialchars(formatOrderNumber($order['order_number'])) ?></p>
                     <p><strong>Total Amount:</strong> ₱<?= number_format($order['total_amount'], 2) ?></p>
                     <?php
-                                                                                                            $pm = $order['payment_method'] ?? '';
-                                                                                                            $pmLabel = $pm === 'COD' ? 'Cash on Delivery' : $pm;
-                                                                                                            $status = trim($order['status'] ?? '');
-                                                                                                            // Friendly label; default to Pending Delivery
-                                                                                                            if ($status === '') {
-                                                                                                                $statusLabel = 'Pending Delivery';
-                                                                                                            } else {
-                                                                                                                // Keep existing common variants readable
-                                                                                                                $normalized = strtolower($status);
-                                                                                                                if ($normalized === 'pending' || $normalized === 'pending delivery') {
-                                                                                                                    $statusLabel = 'Pending';
-                                                                                                                } else if ($normalized === 'assigned') {
-                                                                                                                    $statusLabel = 'Assigned';
-                                                                                                                } else if ($normalized === 'out for delivery') {
-                                                                                                                    $statusLabel = 'Out for Delivery';
-                                                                                                                } else if ($normalized === 'delivered') {
-                                                                                                                    $statusLabel = 'Delivered';
-                                                                                                                } else if ($normalized === 'cancelled' || $normalized === 'canceled') {
-                                                                                                                    $statusLabel = 'Cancelled';
-                                                                                                                } else {
-                                                                                                                    $statusLabel = ucfirst($normalized);
-                                                                                                                }
-                                                                                                            }
+                                $pm = $order['payment_method'] ?? '';
+                                $pmLabel = $pm === 'COD' ? 'Cash on Delivery' : $pm;
+                                $status = trim($order['status'] ?? '');
+                                // Friendly label; default to Pending Delivery
+                                if ($status === '') {
+                                    $statusLabel = 'Pending Delivery';
+                                } else {
+                                    // Keep existing common variants readable
+                                    $normalized = strtolower($status);
+                                    if ($normalized === 'pending' || $normalized === 'pending delivery') {
+                                        $statusLabel = 'Pending';
+                                    } else if ($normalized === 'out for delivery') {
+                                        $statusLabel = 'Out for Delivery';
+                                    } else if ($normalized === 'delivered') {
+                                        $statusLabel = 'Delivered';
+                                    } else if ($normalized === 'cancelled' || $normalized === 'canceled') {
+                                        $statusLabel = 'Cancelled';
+                                    } else {
+                                        $statusLabel = ucfirst($normalized);
+                                    }
+                                }
                     ?>
                     <p><strong>Payment Method:</strong> <?= htmlspecialchars($pmLabel) ?></p>
+                    <?php if ($order['payment_method'] === 'GCash' && $order['gcash_reference']): ?>
+                        <p><strong>GCash Reference:</strong> <?= htmlspecialchars($order['gcash_reference']) ?></p>
+                        <p><strong>Payment Status:</strong>
+                            <span class="badge bg-warning"><?= ucfirst($order['payment_status']) ?></span>
+                        </p>
+                    <?php endif; ?>
                     <p><strong>Status:</strong> <?= htmlspecialchars($statusLabel) ?></p>
                     <p><strong>Delivery Address:</strong><br><?= nl2br(htmlspecialchars($order['delivery_address'])) ?></p>
                     <p><strong>Date Requested:</strong> <?= htmlspecialchars($order['date_requested']) ?></p>

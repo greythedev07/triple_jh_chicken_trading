@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once('config.php');
+require_once('includes/order_helper.php');
 
 if (!isset($_SESSION['driver_id'])) {
     header('Location: drivers/driver_login.php');
@@ -67,7 +68,7 @@ $total_pickup_pages = ceil($total_pickups_count / $items_per_page);
 
 // Fetch ongoing deliveries (exclude completed ones) with pagination
 $stmt = $db->prepare("
-    SELECT tbd.*, CONCAT(u.firstname, ' ', u.lastname) AS customer_name, u.phonenumber AS customer_phone, pd.total_amount
+    SELECT tbd.*, CONCAT(u.firstname, ' ', u.lastname) AS customer_name, u.phonenumber AS customer_phone, pd.total_amount, pd.order_number
     FROM to_be_delivered tbd
     JOIN users u ON tbd.user_id = u.id
     LEFT JOIN pending_delivery pd ON pd.id = tbd.pending_delivery_id
@@ -91,10 +92,11 @@ $total_delivering_pages = ceil($total_delivering_count / $items_per_page);
 
 // Fetch delivery history with pagination
 $stmt = $db->prepare("
-    SELECT hod.*, tbd.pending_delivery_id, CONCAT(u.firstname, ' ', u.lastname) AS customer_name
+    SELECT hod.*, tbd.pending_delivery_id, CONCAT(u.firstname, ' ', u.lastname) AS customer_name, pd.order_number
     FROM history_of_delivery hod
     JOIN users u ON hod.user_id = u.id
     LEFT JOIN to_be_delivered tbd ON tbd.id = hod.to_be_delivered_id
+    LEFT JOIN pending_delivery pd ON pd.id = tbd.pending_delivery_id
     WHERE hod.driver_id = ?
     ORDER BY hod.id DESC
     LIMIT $items_per_page OFFSET $offset_history
@@ -245,6 +247,40 @@ $total_history_pages = ceil($total_history_count / $items_per_page);
             background-color: #000;
             border-color: #000;
         }
+
+        .valid-feedback {
+            display: block;
+            width: 100%;
+            margin-top: 0.25rem;
+            font-size: 0.875em;
+            color: #198754;
+        }
+
+        .invalid-feedback {
+            display: block;
+            width: 100%;
+            margin-top: 0.25rem;
+            font-size: 0.875em;
+            color: #dc3545;
+        }
+
+        .form-control.is-valid {
+            border-color: #198754;
+            padding-right: calc(1.5em + 0.75rem);
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%23198754' d='m2.3 6.73.94-.94 1.44-1.44'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right calc(0.375em + 0.1875rem) center;
+            background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+        }
+
+        .form-control.is-invalid {
+            border-color: #dc3545;
+            padding-right: calc(1.5em + 0.75rem);
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath d='m5.8 4.6 1.4 1.4 1.4-1.4'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right calc(0.375em + 0.1875rem) center;
+            background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+        }
     </style>
 </head>
 
@@ -311,7 +347,7 @@ $total_history_pages = ceil($total_history_count / $items_per_page);
                             <tbody>
                                 <?php foreach ($pickups as $p): ?>
                                     <tr>
-                                        <td>#<?= htmlspecialchars($p['id']) ?></td>
+                                        <td><?= htmlspecialchars($p['order_number'] ? formatOrderNumber($p['order_number']) : '#' . $p['id']) ?></td>
                                         <td><?= htmlspecialchars($p['customer_name']) ?></td>
                                         <td><?= htmlspecialchars($p['customer_phone'] ?? '') ?></td>
                                         <td><?= htmlspecialchars($p['delivery_address'] ?? 'N/A') ?></td>
@@ -376,7 +412,7 @@ $total_history_pages = ceil($total_history_count / $items_per_page);
                             <tbody>
                                 <?php foreach ($ongoing as $d): ?>
                                     <tr>
-                                        <td>#<?= htmlspecialchars($d['id']) ?></td>
+                                        <td><?= htmlspecialchars($d['order_number'] ? formatOrderNumber($d['order_number']) : '#' . $d['id']) ?></td>
                                         <td><?= htmlspecialchars($d['customer_name']) ?></td>
                                         <td><?= htmlspecialchars($d['customer_phone'] ?? '') ?></td>
                                         <td><?= htmlspecialchars($d['delivery_address'] ?? 'N/A') ?></td>
@@ -388,7 +424,7 @@ $total_history_pages = ceil($total_history_count / $items_per_page);
                                         ?>
                                         <td><span class="badge <?= $badge2 ?>"><?= htmlspecialchars($label2) ?></span></td>
                                         <td>
-                                            <button class="btn btn-sm btn-dark" data-bs-toggle="modal" data-bs-target="#completeModal" data-delivery-id="<?= (int)$d['id'] ?>">Complete</button>
+                                            <button class="btn btn-sm btn-dark" data-bs-toggle="modal" data-bs-target="#completeModal" data-delivery-id="<?= (int)$d['id'] ?>" data-total-amount="<?= (float)($d['total_amount'] ?? 0) ?>">Complete</button>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -438,7 +474,7 @@ $total_history_pages = ceil($total_history_count / $items_per_page);
                             <tbody>
                                 <?php foreach ($history as $h): ?>
                                     <tr>
-                                        <td>#<?= htmlspecialchars($h['pending_delivery_id'] ?? $h['to_be_delivered_id']) ?></td>
+                                        <td><?= htmlspecialchars($h['order_number'] ? formatOrderNumber($h['order_number']) : '#' . ($h['pending_delivery_id'] ?? $h['to_be_delivered_id'])) ?></td>
                                         <td><?= htmlspecialchars($h['customer_name']) ?></td>
                                         <td><?= htmlspecialchars($h['delivery_address'] ?? 'N/A') ?></td>
                                         <td><?= htmlspecialchars($h['delivery_time'] ?? '') ?></td>
@@ -530,14 +566,26 @@ $total_history_pages = ceil($total_history_count / $items_per_page);
                     </div>
                     <div class="modal-body">
                         <input type="hidden" name="to_be_delivered_id" id="complete_delivery_id">
+                        <input type="hidden" id="required_amount" value="0">
+
+                        <div class="mb-3">
+                            <div class="alert alert-info">
+                                <strong>Amount to Collect:</strong> ₱<span id="display_required_amount">0.00</span>
+                            </div>
+                        </div>
+
                         <div class="mb-3">
                             <label class="form-label">Payment Received (₱)</label>
-                            <input type="number" step="0.01" min="0" name="payment_received" class="form-control" required>
+                            <input type="number" step="0.01" min="0" name="payment_received" id="payment_received" class="form-control" required>
+                            <div class="invalid-feedback" id="payment_error"></div>
                         </div>
+
                         <div class="mb-3">
                             <label class="form-label">Change Given (₱)</label>
-                            <input type="number" step="0.01" min="0" name="change_given" class="form-control" required>
+                            <input type="number" step="0.01" min="0" name="change_given" id="change_given" class="form-control" required readonly>
+                            <small class="form-text text-muted">This will be calculated automatically</small>
                         </div>
+
                         <div class="mb-3">
                             <label class="form-label">Proof of Delivery Photo</label>
                             <input type="file" name="proof_image" class="form-control" accept="image/*" required>
@@ -575,14 +623,74 @@ $total_history_pages = ceil($total_history_count / $items_per_page);
             });
         }
 
-        // Populate complete modal with delivery id
+        // Populate complete modal with delivery id and total amount
         const completeModal = document.getElementById('completeModal');
         if (completeModal) {
             completeModal.addEventListener('show.bs.modal', function(event) {
                 const button = event.relatedTarget;
                 const deliveryId = button?.getAttribute('data-delivery-id');
-                const input = document.getElementById('complete_delivery_id');
-                if (input && deliveryId) input.value = deliveryId;
+                const totalAmount = parseFloat(button?.getAttribute('data-total-amount') || 0);
+
+                const deliveryInput = document.getElementById('complete_delivery_id');
+                const requiredAmountInput = document.getElementById('required_amount');
+                const displayAmount = document.getElementById('display_required_amount');
+                const paymentReceivedInput = document.getElementById('payment_received');
+                const changeGivenInput = document.getElementById('change_given');
+
+                if (deliveryInput && deliveryId) deliveryInput.value = deliveryId;
+                if (requiredAmountInput) requiredAmountInput.value = totalAmount;
+                if (displayAmount) displayAmount.textContent = totalAmount.toFixed(2);
+
+                // Reset form fields
+                if (paymentReceivedInput) {
+                    paymentReceivedInput.value = '';
+                    paymentReceivedInput.classList.remove('is-invalid', 'is-valid');
+                }
+                if (changeGivenInput) changeGivenInput.value = '0.00';
+
+                // Clear any previous error messages
+                const errorDiv = document.getElementById('payment_error');
+                if (errorDiv) errorDiv.textContent = '';
+            });
+        }
+
+        // Payment validation and automatic change calculation
+        const paymentReceivedInput = document.getElementById('payment_received');
+        const changeGivenInput = document.getElementById('change_given');
+
+        if (paymentReceivedInput && changeGivenInput) {
+            paymentReceivedInput.addEventListener('input', function() {
+                const requiredAmount = parseFloat(document.getElementById('required_amount').value || 0);
+                const paymentReceived = parseFloat(this.value || 0);
+                const errorDiv = document.getElementById('payment_error');
+
+                // Clear previous validation states
+                this.classList.remove('is-invalid', 'is-valid');
+                if (errorDiv) errorDiv.textContent = '';
+
+                if (paymentReceived > 0) {
+                    if (paymentReceived < requiredAmount) {
+                        // Payment insufficient
+                        this.classList.add('is-invalid');
+                        if (errorDiv) errorDiv.textContent = `Payment insufficient. Need ₱${(requiredAmount - paymentReceived).toFixed(2)} more.`;
+                        changeGivenInput.value = '0.00';
+                    } else {
+                        // Payment sufficient - calculate change
+                        this.classList.add('is-valid');
+                        const change = paymentReceived - requiredAmount;
+                        changeGivenInput.value = change.toFixed(2);
+
+                        if (change > 0) {
+                            if (errorDiv) errorDiv.textContent = `Change to give: ₱${change.toFixed(2)}`;
+                            errorDiv.className = 'valid-feedback';
+                        } else {
+                            if (errorDiv) errorDiv.textContent = 'Exact payment received.';
+                            errorDiv.className = 'valid-feedback';
+                        }
+                    }
+                } else {
+                    changeGivenInput.value = '0.00';
+                }
             });
         }
     </script>

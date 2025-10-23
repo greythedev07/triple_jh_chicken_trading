@@ -17,7 +17,7 @@ if (!$pending_id || !$driver_id) {
 try {
     $db->beginTransaction();
 
-    // Attach driver and set status
+    // Attach driver and update status to 'assigned' to remove from pickup tab
     $upd = $db->prepare("UPDATE pending_delivery SET driver_id = ?, status = 'assigned' WHERE id = ?");
     $upd->execute([$driver_id, $pending_id]);
 
@@ -31,7 +31,7 @@ try {
         $pd = $db->prepare("SELECT user_id, delivery_address FROM pending_delivery WHERE id = ?");
         $pd->execute([$pending_id]);
         $row = $pd->fetch(PDO::FETCH_ASSOC);
-        $ins = $db->prepare("INSERT INTO to_be_delivered (pending_delivery_id, driver_id, user_id, delivery_address) VALUES (?, ?, ?, ?)");
+        $ins = $db->prepare("INSERT INTO to_be_delivered (pending_delivery_id, driver_id, user_id, delivery_address, status) VALUES (?, ?, ?, ?, 'pending')");
         $ins->execute([$pending_id, $driver_id, $row['user_id'], $row['delivery_address']]);
         $tbd_id = $db->lastInsertId();
 
