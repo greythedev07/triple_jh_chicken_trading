@@ -25,11 +25,11 @@ $stmt = $db->prepare("SELECT name, vehicle_type, phone FROM drivers WHERE id = ?
 $stmt->execute([$driver_id]);
 $driver = $stmt->fetch(PDO::FETCH_ASSOC);
 
-// 🟢 Exclude cancelled and picked up orders from stats
+// 🟢 Exclude cancelled, picked up, and delivered orders from stats
 $pending_pickups = $db->query("
     SELECT COUNT(*) FROM pending_delivery 
     WHERE driver_id = $driver_id 
-    AND status NOT IN ('Cancelled','cancelled','to be delivered','out for delivery','assigned')
+    AND status NOT IN ('Cancelled','cancelled','to be delivered','out for delivery','assigned','delivered')
 ")->fetchColumn();
 
 $ongoing_deliveries = $db->query("
@@ -43,13 +43,13 @@ $completed_deliveries = $db->query("
     WHERE driver_id = $driver_id
 ")->fetchColumn();
 
-// 🟢 Fetch pickup list (exclude cancelled and picked up orders) with pagination
+// 🟢 Fetch pickup list (exclude cancelled, picked up, and delivered orders) with pagination
 $stmt = $db->prepare("
     SELECT pd.*, CONCAT(u.firstname, ' ', u.lastname) AS customer_name, u.phonenumber AS customer_phone
     FROM pending_delivery pd
     JOIN users u ON pd.user_id = u.id
     WHERE pd.driver_id = ?
-    AND pd.status NOT IN ('Cancelled','cancelled','to be delivered','out for delivery','assigned')
+    AND pd.status NOT IN ('Cancelled','cancelled','to be delivered','out for delivery','assigned','delivered')
     ORDER BY pd.id DESC
     LIMIT $items_per_page OFFSET $offset_pickup
 ");
@@ -60,7 +60,7 @@ $pickups = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $total_pickups = $db->prepare("
     SELECT COUNT(*) FROM pending_delivery pd
     WHERE pd.driver_id = ?
-    AND pd.status NOT IN ('Cancelled','cancelled','to be delivered','out for delivery','assigned')
+    AND pd.status NOT IN ('Cancelled','cancelled','to be delivered','out for delivery','assigned','delivered')
 ");
 $total_pickups->execute([$driver_id]);
 $total_pickups_count = $total_pickups->fetchColumn();

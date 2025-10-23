@@ -1,5 +1,6 @@
 -- Triple JH Chicken Trading Database Setup
--- Run this script to create all required tables
+-- Run this script to create all required tables and indexes
+-- Version: 2.0 - Updated with all recent improvements
 
 CREATE DATABASE IF NOT EXISTS commissioned_app_database;
 USE commissioned_app_database;
@@ -206,31 +207,52 @@ CREATE INDEX idx_to_be_delivered_driver ON to_be_delivered(driver_id);
 CREATE INDEX idx_to_be_delivered_user ON to_be_delivered(user_id);
 CREATE INDEX idx_to_be_delivered_status ON to_be_delivered(status);
 
--- Migration commands for existing databases (run these if columns don't exist)
--- These commands are safe to run multiple times as they check for column existence first
 
--- Add order_number column if it doesn't exist
-SET @sql = (SELECT IF(
-    (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS 
-     WHERE TABLE_SCHEMA = DATABASE() 
-     AND TABLE_NAME = 'history_of_delivery' 
-     AND COLUMN_NAME = 'order_number') = 0,
-    'ALTER TABLE history_of_delivery ADD COLUMN order_number VARCHAR(20) AFTER user_id',
-    'SELECT "order_number column already exists" as message'
-));
-PREPARE stmt FROM @sql;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
+-- ========================================
+-- ORDER STATUS FLOW
+-- ========================================
 
--- Add payment_method column if it doesn't exist
-SET @sql = (SELECT IF(
-    (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS 
-     WHERE TABLE_SCHEMA = DATABASE() 
-     AND TABLE_NAME = 'history_of_delivery' 
-     AND COLUMN_NAME = 'payment_method') = 0,
-    'ALTER TABLE history_of_delivery ADD COLUMN payment_method VARCHAR(50) AFTER order_number',
-    'SELECT "payment_method column already exists" as message'
-));
-PREPARE stmt FROM @sql;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
+-- pending_delivery.status values:
+-- - 'pending': Order placed, waiting for driver assignment
+-- - 'assigned': Driver assigned, ready for pickup
+-- - 'picked_up': Driver has picked up the order
+-- - 'delivered': Order completed and delivered
+-- - 'cancelled': Order was cancelled
+
+-- to_be_delivered.status values:
+-- - 'picked_up': Order picked up by driver
+-- - 'delivered': Order completed and delivered
+
+-- ========================================
+-- DATABASE STRUCTURE OVERVIEW
+-- ========================================
+
+-- Core Tables:
+-- 1. users - Customer information and accounts
+-- 2. admins - Admin user accounts with special privileges
+-- 3. drivers - Driver accounts and vehicle information
+-- 4. products - Product catalog with pricing and stock
+-- 5. cart - Shopping cart items for users
+
+-- Order Management Tables:
+-- 6. pending_delivery - Orders waiting for driver assignment/pickup
+-- 7. pending_delivery_items - Items in pending orders
+-- 8. to_be_delivered - Orders picked up and ready for delivery
+-- 9. to_be_delivered_items - Items in active deliveries
+-- 10. history_of_delivery - Completed delivery records
+-- 11. history_of_delivery_items - Items in completed deliveries
+
+-- Payment Tables:
+-- 12. gcash_qr_codes - GCash QR code information for payments
+-- 13. admin_keys - Admin registration keys
+
+-- ========================================
+-- INSTALLATION INSTRUCTIONS
+-- ========================================
+
+-- 1. Run this script in your MySQL/MariaDB database
+-- 2. Update config.php with your database credentials
+-- 3. Set up file upload directories (uploads/products/, uploads/deliveries/, etc.)
+-- 4. Configure admin account using the provided admin key (80085)
+-- 5. Add your GCash QR code information
+-- 6. Test the system with sample data
