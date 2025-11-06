@@ -25,6 +25,7 @@ try {
         FROM pending_delivery pd
         JOIN users u ON pd.user_id = u.id
         LEFT JOIN drivers d ON pd.driver_id = d.id
+        WHERE pd.status != 'delivered'
         ORDER BY pd.id DESC
     ");
     $deliveries = $stmt->fetchAll(PDO::FETCH_ASSOC);

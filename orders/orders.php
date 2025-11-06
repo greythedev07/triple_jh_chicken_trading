@@ -14,7 +14,7 @@ $user_id = $_SESSION['user_id'];
 try {
     $cartStmt = $db->prepare("SELECT SUM(quantity) AS count FROM cart WHERE user_id = ?");
     $cartStmt->execute([$user_id]);
-    $cartCount = (int)$cartStmt->fetchColumn();
+    $cartCount = (int) $cartStmt->fetchColumn();
 } catch (PDOException $e) {
     $cartCount = 0;
 }
@@ -99,32 +99,34 @@ try {
     <meta charset="UTF-8">
     <title>My Orders | Triple JH Chicken Trading</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="../css/footer_header.css">
 
     <style>
         html,
         body {
             height: 100%;
+            margin: 0;
+            font-family: "Inter", "Segoe UI", sans-serif;
+            background-color: #f8f9fb;
+            color: #222;
+            display: flex;
+            flex-direction: column;
         }
 
         body {
+            padding-top: 70px;
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
-            background: #f5f6f8;
-            font-family: 'Inter', sans-serif;
-            color: #222;
         }
 
         main {
             flex: 1;
             display: flex;
-        }
-
-        .navbar {
-            background: #000;
-        }
-
-        .navbar a {
-            color: #fff !important;
+            padding-bottom: 80px;
+            width: 80%;
+            margin-inline: auto;
         }
 
         .cart-link {
@@ -146,6 +148,7 @@ try {
         }
 
         .sidebar {
+            margin-top: 50px;
             width: 250px;
             background: #fff;
             border-right: 1px solid #eee;
@@ -187,7 +190,8 @@ try {
         .content-area {
             flex: 1;
             padding: 2rem;
-            overflow-y: auto;
+            overflow-y: scroll;
+            scrollbar-width: none;
         }
 
         .orders-container {
@@ -262,16 +266,55 @@ try {
 
 <body>
 
-    <nav class="navbar navbar-expand-lg">
+    <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
         <div class="container">
-            <a class="navbar-brand fw-bold" href="../dashboard.php">Triple JH</a>
-            <div class="collapse navbar-collapse">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item"><a class="nav-link" href="../dashboard.php">Shop</a></li>
-                    <li class="nav-item"><a class="nav-link cart-link" href="../carts/cart.php">Cart <span id="cartBadge" class="cart-badge" style="<?= $cartCount > 0 ? '' : 'display:none' ?>"><?= $cartCount > 0 ? $cartCount : '' ?></span></a></li>
-                    <li class="nav-item"><a class="nav-link active" href="#">Orders</a></li>
-                    <li class="nav-item"><a class="nav-link" href="../useraccounts/settings.php">Settings</a></li>
-                    <li class="nav-item"><a class="nav-link" href="../logout.php">Logout</a></li>
+            <a class="navbar-brand d-flex align-items-center" href="../dashboard.php">
+                <img src="../img/logo.jpg" alt="Triple JH Chicken Trading"
+                    style="height: 40px; width: auto; margin-right: 10px;">
+                <span class="d-none d-md-inline">Triple JH Chicken Trading</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto align-items-center">
+                    <li class="nav-item">
+                        <a class="nav-link" href="../dashboard.php">
+                            <i class="fas fa-home"></i> Shop
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="../about.php">
+                            <i class="fas fa-info-circle"></i> About
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="../orders/orders.php">
+                            <i class="fas fa-shopping-bag"></i> Orders
+                        </a>
+                    </li>
+                    <li class="nav-item me-3">
+                        <a class="nav-link position-relative" href="../carts/cart.php">
+                            <i class="fas fa-shopping-cart"></i> Cart
+                            <?php if ($cartCount > 0): ?>
+                                <span
+                                    class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                    <?= $cartCount ?>
+                                </span>
+                            <?php endif; ?>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="../useraccounts/settings.php">
+                            <i class="fas fa-user"></i>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="../logout.php">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </a>
+                    </li>
                 </ul>
             </div>
         </div>
@@ -301,12 +344,15 @@ try {
                         <p class="text-muted">You have no active orders.</p>
                     <?php else: ?>
                         <?php foreach ($orders as $order):
-                            $oid = (int)$order['order_id']; ?>
+                            $oid = (int) $order['order_id']; ?>
                             <div class="order-card">
                                 <div class="order-header">
                                     <div>
-                                        <div class="fw-bold">Order #<?= htmlspecialchars($order['order_number'] ? formatOrderNumber($order['order_number']) : $oid) ?></div>
-                                        <small class="text-muted"><?= date("F j, Y, g:i a", strtotime($order['date_requested'])) ?></small>
+                                        <div class="fw-bold">Order
+                                            #<?= htmlspecialchars($order['order_number'] ? formatOrderNumber($order['order_number']) : $oid) ?>
+                                        </div>
+                                        <small
+                                            class="text-muted"><?= date("F j, Y, g:i a", strtotime($order['date_requested'])) ?></small>
                                     </div>
                                     <div>
                                         <?php
@@ -324,11 +370,12 @@ try {
 
                                 <?php foreach ($orderItems[$oid] as $item): ?>
                                     <div class="d-flex align-items-center mb-2">
-                                        <img src="../<?= htmlspecialchars($item['image'] ?? 'img/no-image.png') ?>"
-                                            width="60" height="60" class="rounded me-2" alt="">
+                                        <img src="../<?= htmlspecialchars($item['image'] ?? 'img/no-image.png') ?>" width="60"
+                                            height="60" class="rounded me-2" alt="">
                                         <div class="flex-grow-1">
                                             <?= htmlspecialchars($item['name']) ?><br>
-                                            <small>Qty: <?= (int)$item['quantity'] ?> × ₱<?= number_format($item['price'], 2) ?></small>
+                                            <small>Qty: <?= (int) $item['quantity'] ?> ×
+                                                ₱<?= number_format($item['price'], 2) ?></small>
                                         </div>
                                         <strong>₱<?= number_format($item['quantity'] * $item['price'], 2) ?></strong>
                                     </div>
@@ -356,7 +403,9 @@ try {
                                 <div class="modal-dialog modal-dialog-centered modal-lg">
                                     <div class="modal-content">
                                         <div class="modal-header">
-                                            <h5 class="modal-title">Order #<?= htmlspecialchars($order['order_number'] ? formatOrderNumber($order['order_number']) : $oid) ?> Details</h5>
+                                            <h5 class="modal-title">Order
+                                                #<?= htmlspecialchars($order['order_number'] ? formatOrderNumber($order['order_number']) : $oid) ?>
+                                                Details</h5>
                                             <button type="button" class="btn-close" data-bs-dismiss="modal"
                                                 aria-label="Close"></button>
                                         </div>
@@ -366,10 +415,15 @@ try {
                                                 <strong>Status:</strong>
                                                 <span class="badge <?= $badge ?>"><?= htmlspecialchars($label) ?></span>
                                             </div>
-                                            <div class="mb-3"><strong>Delivery Address:</strong><br><?= htmlspecialchars($order['delivery_address']) ?></div>
-                                            <div class="mb-3"><strong>Driver:</strong> <?= htmlspecialchars($order['driver_name'] ?? 'Not assigned yet') ?></div>
-                                            <div class="mb-3"><strong>Payment Method:</strong> <?= htmlspecialchars($order['payment_method']) ?></div>
-                                            <div class="mb-3"><strong>Total Amount:</strong> ₱<?= number_format($order['total_amount'], 2) ?></div>
+                                            <div class="mb-3"><strong>Delivery
+                                                    Address:</strong><br><?= htmlspecialchars($order['delivery_address']) ?>
+                                            </div>
+                                            <div class="mb-3"><strong>Driver:</strong>
+                                                <?= htmlspecialchars($order['driver_name'] ?? 'Not assigned yet') ?></div>
+                                            <div class="mb-3"><strong>Payment Method:</strong>
+                                                <?= htmlspecialchars($order['payment_method']) ?></div>
+                                            <div class="mb-3"><strong>Total Amount:</strong>
+                                                ₱<?= number_format($order['total_amount'], 2) ?></div>
 
                                             <hr>
                                             <h6>Ordered Items:</h6>
@@ -379,7 +433,8 @@ try {
                                                         width="60" height="60" class="me-2 rounded" alt="">
                                                     <div class="flex-grow-1">
                                                         <?= htmlspecialchars($item['name']) ?><br>
-                                                        <small>Qty: <?= (int)$item['quantity'] ?> × ₱<?= number_format($item['price'], 2) ?></small>
+                                                        <small>Qty: <?= (int) $item['quantity'] ?> ×
+                                                            ₱<?= number_format($item['price'], 2) ?></small>
                                                     </div>
                                                     <strong>₱<?= number_format($item['quantity'] * $item['price'], 2) ?></strong>
                                                 </div>
@@ -403,12 +458,15 @@ try {
                         <p class="text-muted">You have no completed orders.</p>
                     <?php else: ?>
                         <?php foreach ($completedOrders as $order):
-                            $oid = (int)$order['order_id']; ?>
+                            $oid = (int) $order['order_id']; ?>
                             <div class="order-card">
                                 <div class="order-header">
                                     <div>
-                                        <div class="fw-bold">Order #<?= htmlspecialchars($order['order_number'] ? formatOrderNumber($order['order_number']) : $oid) ?></div>
-                                        <small class="text-muted"><?= date("F j, Y, g:i a", strtotime($order['date_requested'])) ?></small>
+                                        <div class="fw-bold">Order
+                                            #<?= htmlspecialchars($order['order_number'] ? formatOrderNumber($order['order_number']) : $oid) ?>
+                                        </div>
+                                        <small
+                                            class="text-muted"><?= date("F j, Y, g:i a", strtotime($order['date_requested'])) ?></small>
                                     </div>
                                     <div>
                                         <span class="badge bg-success">Delivered</span>
@@ -421,11 +479,12 @@ try {
 
                                 <?php foreach ($completedOrderItems[$oid] as $item): ?>
                                     <div class="d-flex align-items-center mb-2">
-                                        <img src="../<?= htmlspecialchars($item['image'] ?? 'img/no-image.png') ?>"
-                                            width="60" height="60" class="rounded me-2" alt="">
+                                        <img src="../<?= htmlspecialchars($item['image'] ?? 'img/no-image.png') ?>" width="60"
+                                            height="60" class="rounded me-2" alt="">
                                         <div class="flex-grow-1">
                                             <div class="fw-semibold"><?= htmlspecialchars($item['name']) ?></div>
-                                            <small class="text-muted">Quantity: <?= $item['quantity'] ?> × ₱<?= number_format($item['price'], 2) ?></small>
+                                            <small class="text-muted">Quantity: <?= $item['quantity'] ?> ×
+                                                ₱<?= number_format($item['price'], 2) ?></small>
                                         </div>
                                     </div>
                                 <?php endforeach; ?>
@@ -443,23 +502,32 @@ try {
                                 <div class="modal-dialog modal-dialog-centered modal-lg">
                                     <div class="modal-content">
                                         <div class="modal-header">
-                                            <h5 class="modal-title">Order #<?= htmlspecialchars($order['order_number'] ? formatOrderNumber($order['order_number']) : $oid) ?> Details</h5>
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            <h5 class="modal-title">Order
+                                                #<?= htmlspecialchars($order['order_number'] ? formatOrderNumber($order['order_number']) : $oid) ?>
+                                                Details</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                                aria-label="Close"></button>
                                         </div>
                                         <div class="modal-body">
                                             <div class="row">
                                                 <div class="col-md-6">
                                                     <h6>Order Information</h6>
                                                     <p><strong>Order ID:</strong> #<?= $oid ?></p>
-                                                    <p><strong>Date:</strong> <?= date("F j, Y, g:i a", strtotime($order['date_requested'])) ?></p>
-                                                    <p><strong>Status:</strong> <span class="badge bg-success">Delivered</span></p>
-                                                    <p><strong>Payment Method:</strong> <?= htmlspecialchars($order['payment_method'] === 'COD' ? 'Cash on Delivery' : ($order['payment_method'] === 'GCash' ? 'GCash' : $order['payment_method'])) ?></p>
+                                                    <p><strong>Date:</strong>
+                                                        <?= date("F j, Y, g:i a", strtotime($order['date_requested'])) ?></p>
+                                                    <p><strong>Status:</strong> <span class="badge bg-success">Delivered</span>
+                                                    </p>
+                                                    <p><strong>Payment Method:</strong>
+                                                        <?= htmlspecialchars($order['payment_method'] === 'COD' ? 'Cash on Delivery' : ($order['payment_method'] === 'GCash' ? 'GCash' : $order['payment_method'])) ?>
+                                                    </p>
                                                 </div>
                                                 <div class="col-md-6">
                                                     <h6>Delivery Information</h6>
-                                                    <p><strong>Address:</strong> <?= htmlspecialchars($order['delivery_address']) ?></p>
+                                                    <p><strong>Address:</strong>
+                                                        <?= htmlspecialchars($order['delivery_address']) ?></p>
                                                     <?php if ($order['driver_name']): ?>
-                                                        <p><strong>Driver:</strong> <?= htmlspecialchars($order['driver_name']) ?></p>
+                                                        <p><strong>Driver:</strong> <?= htmlspecialchars($order['driver_name']) ?>
+                                                        </p>
                                                     <?php endif; ?>
                                                 </div>
                                             </div>
@@ -472,7 +540,8 @@ try {
                                                     <div class="flex-grow-1">
                                                         <h6 class="mb-1"><?= htmlspecialchars($item['name']) ?></h6>
                                                         <p class="text-muted mb-1">Quantity: <?= $item['quantity'] ?></p>
-                                                        <p class="mb-0"><strong>₱<?= number_format($item['price'], 2) ?> each</strong></p>
+                                                        <p class="mb-0"><strong>₱<?= number_format($item['price'], 2) ?>
+                                                                each</strong></p>
                                                     </div>
                                                     <div class="text-end">
                                                         <strong>₱<?= number_format($item['price'] * $item['quantity'], 2) ?></strong>
@@ -498,9 +567,16 @@ try {
         </div>
     </main>
 
+
     <footer>
-        <div class="container">
-            <small>© <?= date('Y') ?> Triple JH Chicken Trading — All rights reserved.</small>
+        <div class="container text-center">
+            <div class="footer-links">
+                <a href="../dashboard.php">Shop</a>
+                <a href="../about.php">About</a>
+                <a href="../about.php">Terms</a>
+                <a href="../about.php">Privacy</a>
+            </div>
+            <p class="copyright">&copy; <?= date('Y') ?> Triple JH Chicken Trading. All rights reserved.</p>
         </div>
     </footer>
 
@@ -508,12 +584,12 @@ try {
 
     <script>
         // Sidebar tab functionality
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             const sidebarLinks = document.querySelectorAll('.sidebar-link');
             const tabContents = document.querySelectorAll('.tab-content');
 
             sidebarLinks.forEach(link => {
-                link.addEventListener('click', function(e) {
+                link.addEventListener('click', function (e) {
                     e.preventDefault();
 
                     // Remove active class from all links and tabs

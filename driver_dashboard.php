@@ -33,9 +33,13 @@ $pending_pickups = $db->query("
 ")->fetchColumn();
 
 $ongoing_deliveries = $db->query("
-    SELECT COUNT(*) FROM to_be_delivered 
+    SELECT COUNT(*) FROM to_be_delivered tbd
     WHERE driver_id = $driver_id
     AND status != 'delivered'
+    AND NOT EXISTS (
+        SELECT 1 FROM history_of_delivery hod 
+        WHERE hod.to_be_delivered_id = tbd.id
+    )
 ")->fetchColumn();
 
 $completed_deliveries = $db->query("
@@ -67,6 +71,7 @@ $total_pickups_count = $total_pickups->fetchColumn();
 $total_pickup_pages = ceil($total_pickups_count / $items_per_page);
 
 // Fetch ongoing deliveries (exclude completed ones) with pagination
+// Exclude deliveries that are already in history
 $stmt = $db->prepare("
     SELECT tbd.*, CONCAT(u.firstname, ' ', u.lastname) AS customer_name, u.phonenumber AS customer_phone, pd.total_amount, pd.order_number
     FROM to_be_delivered tbd
@@ -74,6 +79,10 @@ $stmt = $db->prepare("
     LEFT JOIN pending_delivery pd ON pd.id = tbd.pending_delivery_id
     WHERE tbd.driver_id = ?
     AND tbd.status != 'delivered'
+    AND NOT EXISTS (
+        SELECT 1 FROM history_of_delivery hod 
+        WHERE hod.to_be_delivered_id = tbd.id
+    )
     ORDER BY tbd.id DESC
     LIMIT $items_per_page OFFSET $offset_delivering
 ");
@@ -85,6 +94,10 @@ $total_delivering = $db->prepare("
     SELECT COUNT(*) FROM to_be_delivered tbd
     WHERE tbd.driver_id = ?
     AND tbd.status != 'delivered'
+    AND NOT EXISTS (
+        SELECT 1 FROM history_of_delivery hod 
+        WHERE hod.to_be_delivered_id = tbd.id
+    )
 ");
 $total_delivering->execute([$driver_id]);
 $total_delivering_count = $total_delivering->fetchColumn();
@@ -693,6 +706,17 @@ $total_history_pages = ceil($total_history_count / $items_per_page);
                 }
             });
         }
+
+        // Prevent duplicate form submissions
+        document.querySelectorAll('form').forEach(form => {
+            form.addEventListener('submit', function(e) {
+                const submitBtn = this.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = 'Processing...';
+                }
+            });
+        });
     </script>
 </body>
 

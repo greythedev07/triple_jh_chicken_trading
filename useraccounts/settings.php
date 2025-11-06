@@ -15,7 +15,7 @@ $error_message = '';
 try {
     $cartStmt = $db->prepare("SELECT SUM(quantity) AS count FROM cart WHERE user_id = ?");
     $cartStmt->execute([$user_id]);
-    $cartCount = (int)$cartStmt->fetchColumn();
+    $cartCount = (int) $cartStmt->fetchColumn();
 } catch (PDOException $e) {
     $cartCount = 0;
 }
@@ -180,23 +180,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Account Settings | Triple JH Chicken Trading</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="../css/footer_header.css">
     <style>
+        html,
         body {
-            background: #f5f6f8;
-            font-family: 'Inter', sans-serif;
+            height: 100%;
+            margin: 0;
+            font-family: "Inter", "Segoe UI", sans-serif;
+            background-color: #f8f9fb;
             color: #222;
             display: flex;
             flex-direction: column;
+        }
+
+        body {
+            padding-top: 50px;
             min-height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
 
-        .navbar {
-            background: #000;
-        }
-
-        .navbar .nav-link,
-        .navbar-brand {
-            color: #fff !important;
+        main {
+            flex: 1;
+            padding-bottom: 80px;
         }
 
         .cart-link {
@@ -334,16 +341,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 
 <body>
-    <nav class="navbar navbar-expand-lg">
+    <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
         <div class="container">
-            <a class="navbar-brand fw-bold" href="../dashboard.php">Triple JH</a>
-            <div class="collapse navbar-collapse">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item"><a class="nav-link" href="../dashboard.php">Shop</a></li>
-                    <li class="nav-item"><a class="nav-link cart-link" href="../carts/cart.php">Cart <span id="cartBadge" class="cart-badge" style="<?= $cartCount > 0 ? '' : 'display:none' ?>"><?= $cartCount > 0 ? $cartCount : '' ?></span></a></li>
-                    <li class="nav-item"><a class="nav-link" href="../orders/orders.php">Orders</a></li>
-                    <li class="nav-item"><a class="nav-link active" href="settings.php">Settings</a></li>
-                    <li class="nav-item"><a class="nav-link" href="../logout.php">Logout</a></li>
+            <a class="navbar-brand d-flex align-items-center" href="../dashboard.php">
+                <img src="../img/logo.jpg" alt="Triple JH Chicken Trading"
+                    style="height: 40px; width: auto; margin-right: 10px;">
+                <span class="d-none d-md-inline">Triple JH Chicken Trading</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto align-items-center">
+                    <li class="nav-item">
+                        <a class="nav-link" href="../dashboard.php">
+                            <i class="fas fa-home"></i> Shop
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="../orders/orders.php">
+                            <i class="fas fa-shopping-bag"></i> Orders
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="../about.php">
+                            <i class="fas fa-info-circle"></i> About
+                        </a>
+                    </li>
+                    <li class="nav-item me-3">
+                        <a class="nav-link position-relative" href="../carts/cart.php">
+                            <i class="fas fa-shopping-cart"></i>
+                            <?php if ($cartCount > 0): ?>
+                                <span
+                                    class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                    <?= $cartCount ?>
+                                </span>
+                            <?php endif; ?>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="../useraccounts/settings.php">
+                            <i class="fas fa-user"></i> Account
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="../logout.php">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </a>
+                    </li>
                 </ul>
             </div>
         </div>
@@ -378,28 +424,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label">First Name</label>
-                            <input type="text" class="form-control" name="firstname" value="<?= htmlspecialchars($user['firstname']) ?>" required>
+                            <input type="text" class="form-control" name="firstname"
+                                value="<?= htmlspecialchars($user['firstname']) ?>" required>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Last Name</label>
-                            <input type="text" class="form-control" name="lastname" value="<?= htmlspecialchars($user['lastname']) ?>" required>
+                            <input type="text" class="form-control" name="lastname"
+                                value="<?= htmlspecialchars($user['lastname']) ?>" required>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Email</label>
-                            <input type="email" class="form-control" name="email" value="<?= htmlspecialchars($user['email']) ?>" required>
+                            <input type="email" class="form-control" name="email"
+                                value="<?= htmlspecialchars($user['email']) ?>" required>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Phone Number</label>
-                            <input type="text" class="form-control" name="phonenumber" value="<?= htmlspecialchars($user['phonenumber']) ?>" required>
+                            <input type="text" class="form-control" name="phonenumber"
+                                value="<?= htmlspecialchars($user['phonenumber']) ?>" required>
                         </div>
                         <div class="col-12">
                             <label class="form-label">Street Address</label>
-                            <input type="text" class="form-control" name="address" value="<?= htmlspecialchars($user['address']) ?>" required>
+                            <input type="text" class="form-control" name="address"
+                                value="<?= htmlspecialchars($user['address']) ?>" required>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Barangay</label>
                             <select class="form-select" name="barangay" required>
-                                <option value="<?= htmlspecialchars($user['barangay']) ?>" selected><?= htmlspecialchars($user['barangay']) ?></option>
+                                <option value="<?= htmlspecialchars($user['barangay']) ?>" selected>
+                                    <?= htmlspecialchars($user['barangay']) ?>
+                                </option>
                                 <option value="">Select Barangay</option>
                                 <option>Banaban</option>
                                 <option>Baybay</option>
@@ -867,7 +920,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <div class="col-md-6">
                             <label class="form-label">City / Municipality</label>
                             <select class="form-select" name="city" required>
-                                <option value="<?= htmlspecialchars($user['city']) ?>" selected><?= htmlspecialchars($user['city']) ?></option>
+                                <option value="<?= htmlspecialchars($user['city']) ?>" selected>
+                                    <?= htmlspecialchars($user['city']) ?>
+                                </option>
                                 <option value="">Select City / Municipality</option>
                                 <option>Angat</option>
                                 <option>Balagtas</option>
@@ -896,11 +951,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">ZIP Code</label>
-                            <input type="text" class="form-control" name="zipcode" value="<?= htmlspecialchars($user['zipcode']) ?>" required>
+                            <input type="text" class="form-control" name="zipcode"
+                                value="<?= htmlspecialchars($user['zipcode']) ?>" required>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Landmark</label>
-                            <input type="text" class="form-control" name="landmark" value="<?= htmlspecialchars($user['landmark']) ?>">
+                            <input type="text" class="form-control" name="landmark"
+                                value="<?= htmlspecialchars($user['landmark']) ?>">
                         </div>
                     </div>
 
@@ -952,12 +1009,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="d-flex align-items-start">
                         <div class="me-3">
                             <svg width="24" height="24" fill="currentColor" class="text-warning" viewBox="0 0 16 16">
-                                <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z" />
+                                <path
+                                    d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z" />
                             </svg>
                         </div>
                         <div>
                             <h6 class="alert-heading fw-bold mb-2">Permanent Account Deletion</h6>
-                            <p class="mb-2">This action cannot be undone. Deleting your account will permanently remove:</p>
+                            <p class="mb-2">This action cannot be undone. Deleting your account will permanently remove:
+                            </p>
                             <ul class="mb-0 small">
                                 <li>Your profile and personal information</li>
                                 <li>All order history and delivery records</li>
@@ -974,8 +1033,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="row g-3">
                         <div class="col-12">
                             <label class="form-label fw-semibold">Confirm Password</label>
-                            <input type="password" class="form-control" name="delete_password" placeholder="Enter your current password" required>
-                            <div class="form-text">You must enter your current password to confirm account deletion.</div>
+                            <input type="password" class="form-control" name="delete_password"
+                                placeholder="Enter your current password" required>
+                            <div class="form-text">You must enter your current password to confirm account deletion.
+                            </div>
                         </div>
 
                         <div class="col-12">
@@ -991,7 +1052,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="mt-4">
                         <button type="submit" class="btn btn-outline-danger w-100" id="deleteAccountBtn" disabled>
                             <svg width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16">
-                                <path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5ZM11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H2.506a.58.58 0 0 0-.01 0H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1h-.995a.59.59 0 0 0-.01 0H11Zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5h9.916Zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47ZM8 4.5a.5.5 0 0 0-.5.5v8.5a.5.5 0 0 0 1 0V5a.5.5 0 0 0-.5-.5Z" />
+                                <path
+                                    d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5ZM11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H2.506a.58.58 0 0 0-.01 0H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1h-.995a.59.59 0 0 0-.01 0H11Zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5h9.916Zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47ZM8 4.5a.5.5 0 0 0-.5.5v8.5a.5.5 0 0 0 1 0V5a.5.5 0 0 0-.5-.5Z" />
                             </svg>
                             Delete My Account
                         </button>
@@ -1002,23 +1064,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
     <footer>
-        <div class="container">
-            <small>© <?= date('Y') ?> Triple JH Chicken Trading — All rights reserved.</small>
+        <div class="container text-center">
+            <div class="footer-links">
+                <a href="../dashboard.php">Shop</a>
+                <a href="../about.php">About</a>
+                <a href="../about.php">Terms</a>
+                <a href="../about.php">Privacy</a>
+            </div>
+            <p class="copyright">&copy; <?= date('Y') ?> Triple JH Chicken Trading. All rights reserved.</p>
         </div>
     </footer>
-
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <script>
         // Enable/disable delete button based on checkbox
-        document.getElementById('confirmDelete').addEventListener('change', function() {
+        document.getElementById('confirmDelete').addEventListener('change', function () {
             const deleteBtn = document.getElementById('deleteAccountBtn');
             deleteBtn.disabled = !this.checked;
         });
 
         // Handle account deletion with confirmation
-        document.getElementById('deleteAccountForm').addEventListener('submit', function(e) {
+        document.getElementById('deleteAccountForm').addEventListener('submit', function (e) {
             e.preventDefault();
 
             Swal.fire({

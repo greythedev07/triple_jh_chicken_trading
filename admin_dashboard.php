@@ -214,16 +214,31 @@ $admin = $stmt->fetch(PDO::FETCH_ASSOC);
       </section>
 
       <!-- INVENTORY SECTION -->
+      <!-- INVENTORY SECTION -->
       <section id="inventory" style="display:none;">
         <h3 class="fw-bold mb-4">Inventory Management</h3>
 
         <div class="card mb-4">
           <form id="addProductForm" class="row g-3" enctype="multipart/form-data">
-            <div class="col-md-3"><input type="text" name="name" class="form-control" placeholder="Product Name" required></div>
-            <div class="col-md-2"><input type="number" name="price" class="form-control" placeholder="Price (₱)" required></div>
-            <div class="col-md-2"><input type="number" name="stock" class="form-control" placeholder="Stock" required></div>
-            <div class="col-md-3"><input type="file" name="image" accept="image/*" class="form-control"></div>
-            <div class="col-md-2 d-grid"><button type="submit" class="btn btn-black">Add</button></div>
+            <div class="col-md-3">
+              <input type="text" name="name" class="form-control" placeholder="Product Name" required>
+            </div>
+            <div class="col-md-2">
+              <input type="number" name="price" class="form-control" placeholder="Price (₱)" step="0.01" min="0"
+                required>
+            </div>
+            <div class="col-md-2">
+              <input type="number" name="stock" class="form-control" placeholder="Stock" min="0" required>
+            </div>
+            <div class="col-md-3">
+              <input type="file" name="image" accept="image/*" class="form-control">
+            </div>
+            <div class="col-12">
+              <textarea name="description" class="form-control" placeholder="Product Description" rows="2"></textarea>
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-black">Add Product</button>
+            </div>
           </form>
         </div>
 
@@ -234,6 +249,7 @@ $admin = $stmt->fetch(PDO::FETCH_ASSOC);
                 <th>#</th>
                 <th>Image</th>
                 <th>Product</th>
+                <th>Description</th>
                 <th>Price</th>
                 <th>Stock</th>
                 <th>Actions</th>
@@ -272,7 +288,8 @@ $admin = $stmt->fetch(PDO::FETCH_ASSOC);
         <h3 class="fw-bold mb-4">GCash Payment Verification</h3>
         <div class="alert alert-info">
           <i class="bi bi-info-circle"></i>
-          <strong>Instructions:</strong> Review GCash payments and verify them using the reference numbers provided by customers.
+          <strong>Instructions:</strong> Review GCash payments and verify them using the reference numbers provided by
+          customers.
           Only verify payments after confirming the transaction with the customer.
         </div>
         <div class="card">
@@ -298,7 +315,8 @@ $admin = $stmt->fetch(PDO::FETCH_ASSOC);
       <!-- DRIVER MANAGEMENT SECTION -->
       <section id="drivers" style="display:none;">
         <h3 class="fw-bold mb-4">Driver Management</h3>
-        <p class="text-muted mb-4">Manage driver accounts and activation status. Drivers register themselves through the driver registration page.</p>
+        <p class="text-muted mb-4">Manage driver accounts and activation status. Drivers register themselves through the
+          driver registration page.</p>
 
 
         <div class="card">
@@ -381,7 +399,8 @@ $admin = $stmt->fetch(PDO::FETCH_ASSOC);
       <!-- ADMIN KEY MANAGEMENT SECTION -->
       <section id="admin-management" style="display:none;">
         <h3 class="fw-bold mb-4">Admin Key Management</h3>
-        <p class="text-muted mb-4">Create and manage admin registration keys. These keys are required for new admin account registration.</p>
+        <p class="text-muted mb-4">Create and manage admin registration keys. These keys are required for new admin
+          account registration.</p>
 
         <div class="card mb-4">
           <div class="card-header d-flex justify-content-between align-items-center">
@@ -425,6 +444,7 @@ $admin = $stmt->fetch(PDO::FETCH_ASSOC);
       else if (id === 'users') loadUsers();
       else if (id === 'analytics') loadAnalytics();
       else if (id === 'admin-management') loadAdminKeys();
+      else if (id === 'inventory') loadProducts();
       else if (id === 'overview') loadOverview();
     }
 
@@ -436,21 +456,85 @@ $admin = $stmt->fetch(PDO::FETCH_ASSOC);
           const table = document.getElementById('productTable');
           table.innerHTML = '';
           data.forEach((p, i) => {
-            const img = p.image ? `<img src="${p.image}" width="50" height="50">` : 'No image';
+            const img = p.image ? `<img src="${p.image}" width="50" height="50" class="img-thumbnail">` : 'No image';
+            const desc = p.description ? `<small class="text-muted">${p.description.substring(0, 50)}${p.description.length > 50 ? '...' : ''}</small>` : '-';
             table.innerHTML += `
-              <tr>
-                <td>${i + 1}</td>
-                <td>${img}</td>
-                <td>${p.name}</td>
-                <td>₱${p.price}</td>
-                <td>${p.stock}</td>
-                <td>
-                  <button class="btn btn-sm btn-outline-dark" onclick="editProduct(${p.id}, '${p.name}', ${p.price}, ${p.stock})">Edit</button>
-                  <button class="btn btn-sm btn-outline-danger" onclick="deleteProduct(${p.id})">Delete</button>
-                </td>
-              </tr>`;
+          <tr>
+            <td>${i + 1}</td>
+            <td>${img}</td>
+            <td>${p.name}</td>
+            <td>${desc}</td>
+            <td>₱${parseFloat(p.price).toFixed(2)}</td>
+            <td>${p.stock}</td>
+            <td>
+              <button class="btn btn-sm btn-outline-dark" 
+                onclick="editProduct(${p.id}, '${p.name.replace(/'/g, "\\'")}', ${p.price}, ${p.stock}, '${p.description ? p.description.replace(/'/g, "\\'") : ''}')">
+                Edit
+              </button>
+              <button class="btn btn-sm btn-outline-danger" onclick="deleteProduct(${p.id})">
+                Delete
+              </button>
+            </td>
+          </tr>`;
           });
         });
+    }
+
+    // Edit Product modal
+    function editProduct(id, name, price, stock, description) {
+      Swal.fire({
+        title: 'Edit Product',
+        html: `
+      <div class="text-start">
+        <label class="form-label">Product Name</label>
+        <input id="pname" class="form-control mb-2" value="${name}">
+        
+        <label class="form-label">Description</label>
+        <textarea id="pdescription" class="form-control mb-2" rows="2">${description || ''}</textarea>
+        
+        <label class="form-label">Price (₱)</label>
+        <input id="pprice" class="form-control mb-2" type="number" min="0" step="0.01" value="${price}">
+        
+        <label class="form-label">Stock</label>
+        <input id="pstock" class="form-control mb-2" type="number" min="0" step="1" value="${stock}">
+        
+        <label class="form-label">Product Image (Leave empty to keep current)</label>
+        <input id="pimage" class="form-control" type="file" accept="image/*">
+      </div>
+    `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: 'Save',
+        preConfirm: () => {
+          const nameVal = document.getElementById('pname').value.trim();
+          const descriptionVal = document.getElementById('pdescription').value.trim();
+          const priceVal = document.getElementById('pprice').value;
+          const stockVal = document.getElementById('pstock').value;
+          const fileInput = document.getElementById('pimage');
+
+          const fd = new FormData();
+          fd.append('id', id);
+          if (nameVal) fd.append('name', nameVal);
+          if (descriptionVal) fd.append('description', descriptionVal);
+          if (priceVal) fd.append('price', priceVal);
+          if (stockVal) fd.append('stock', stockVal);
+          if (fileInput.files && fileInput.files[0]) {
+            fd.append('image', fileInput.files[0]);
+          }
+
+          return fetch('admin/edit_product.php', {
+            method: 'POST',
+            body: fd
+          }).then(r => r.json());
+        }
+      }).then(r => {
+        if (r.value?.status === 'success') {
+          Swal.fire('Updated!', '', 'success');
+          loadProducts();
+        } else if (r.value?.message) {
+          Swal.fire('Error', r.value.message, 'error');
+        }
+      });
     }
 
     // Add Product
@@ -458,9 +542,9 @@ $admin = $stmt->fetch(PDO::FETCH_ASSOC);
       e.preventDefault();
       const formData = new FormData(e.target);
       fetch('admin/add_product.php', {
-          method: 'POST',
-          body: formData
-        })
+        method: 'POST',
+        body: formData
+      })
         .then(res => res.json())
         .then(d => {
           if (d.status === 'success') {
@@ -471,48 +555,6 @@ $admin = $stmt->fetch(PDO::FETCH_ASSOC);
         });
     });
 
-    // Edit/Delete Product
-    function editProduct(id, name, price, stock) {
-      Swal.fire({
-        title: 'Edit Product',
-        html: `
-          <div class="text-start">
-            <label class="form-label">Product Name</label>
-            <input id="pname" class="form-control mb-3" placeholder="Enter product name">
-            <label class="form-label">Price (₱)</label>
-            <input id="pprice" class="form-control mb-3" type="number" min="0" step="0.01" placeholder="Enter price">
-            <label class="form-label">Stock</label>
-            <input id="pstock" class="form-control mb-3" type="number" min="0" step="1" placeholder="Enter stock">
-            <label class="form-label">Product Image</label>
-            <input id="pimage" class="form-control" type="file" accept="image/*">
-          </div>
-        `,
-        focusConfirm: false,
-        showCancelButton: true,
-        confirmButtonText: 'Save',
-        preConfirm: () => {
-          const nameVal = document.getElementById('pname').value.trim();
-          const priceVal = document.getElementById('pprice').value;
-          const stockVal = document.getElementById('pstock').value;
-          const fileInput = document.getElementById('pimage');
-          const fd = new FormData();
-          fd.append('id', id);
-          if (nameVal !== '') fd.append('name', nameVal);
-          if (priceVal !== '') fd.append('price', priceVal);
-          if (stockVal !== '') fd.append('stock', stockVal);
-          if (fileInput.files && fileInput.files[0]) fd.append('image', fileInput.files[0]);
-          return fetch('admin/edit_product.php', {
-            method: 'POST',
-            body: fd
-          }).then(r => r.json());
-        }
-      }).then(r => {
-        if (r.value?.status === 'success') {
-          Swal.fire('Updated!', '', 'success');
-          loadProducts();
-        }
-      });
-    }
 
     function deleteProduct(id) {
       Swal.fire({
@@ -531,6 +573,137 @@ $admin = $stmt->fetch(PDO::FETCH_ASSOC);
           });
         }
       });
+    }
+
+    // Add this function to admin_dashboard.js
+    function manageWeightVariants(productId, productName) {
+      fetch(`admin/get_weight_variants.php?product_id=${productId}`)
+        .then(res => res.json())
+        .then(variants => {
+          let variantsHtml = variants.map(v => `
+        <tr data-id="${v.id}">
+          <td><input type="number" class="form-control form-control-sm weight" value="${v.weight}" step="0.01" min="0"></td>
+          <td><input type="number" class="form-control form-control-sm price" value="${v.price_adjustment}" step="0.01"></td>
+          <td><input type="number" class="form-control form-control-sm stock" value="${v.stock}" min="0"></td>
+          <td class="text-center">
+            <div class="form-check form-check-inline">
+              <input class="form-check-input default-variant" type="radio" name="default_variant" ${v.is_default ? 'checked' : ''}>
+            </div>
+          </td>
+          <td class="text-end">
+            <button class="btn btn-sm btn-outline-danger delete-variant">×</button>
+          </td>
+        </tr>
+      `).join('');
+
+          Swal.fire({
+            title: `Weight Variants: ${productName}`,
+            html: `
+          <div class="table-responsive">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>Weight (kg)</th>
+                  <th>Price Adjustment (₱)</th>
+                  <th>Stock</th>
+                  <th>Default</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="weightVariantsTable">
+                ${variantsHtml}
+                <tr id="newVariantRow">
+                  <td><input type="number" class="form-control form-control-sm" id="newWeight" placeholder="Weight" step="0.01" min="0"></td>
+                  <td><input type="number" class="form-control form-control-sm" id="newPriceAdj" placeholder="+/- Price" step="0.01"></td>
+                  <td><input type="number" class="form-control form-control-sm" id="newStock" placeholder="Stock" min="0"></td>
+                  <td colspan="2">
+                    <button id="addVariantBtn" class="btn btn-sm btn-outline-primary w-100">Add Variant</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        `,
+            showCancelButton: true,
+            confirmButtonText: 'Save Changes',
+            didOpen: () => {
+              // Add new variant
+              document.getElementById('addVariantBtn').addEventListener('click', () => {
+                const weight = document.getElementById('newWeight').value;
+                const priceAdj = document.getElementById('newPriceAdj').value || 0;
+                const stock = document.getElementById('newStock').value || 0;
+
+                if (!weight) {
+                  Swal.fire('Error', 'Please enter a weight', 'error');
+                  return;
+                }
+
+                const newRow = `
+              <tr data-id="new">
+                <td><input type="number" class="form-control form-control-sm weight" value="${weight}" step="0.01" min="0"></td>
+                <td><input type="number" class="form-control form-control-sm price" value="${priceAdj}" step="0.01"></td>
+                <td><input type="number" class="form-control form-control-sm stock" value="${stock}" min="0"></td>
+                <td class="text-center">
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input default-variant" type="radio" name="default_variant">
+                  </div>
+                </td>
+                <td class="text-end">
+                  <button class="btn btn-sm btn-outline-danger delete-variant">×</button>
+                </td>
+              </tr>
+            `;
+
+                document.getElementById('weightVariantsTable').insertAdjacentHTML('beforeend', newRow);
+
+                // Clear the "new variant" inputs
+                document.getElementById('newWeight').value = '';
+                document.getElementById('newPriceAdj').value = '';
+                document.getElementById('newStock').value = '';
+              });
+
+              // Delete variant
+              document.querySelectorAll('.delete-variant').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                  e.target.closest('tr').remove();
+                });
+              });
+            }
+          }).then((result) => {
+            if (result.isConfirmed) {
+              const variants = [];
+              document.querySelectorAll('#weightVariantsTable tr:not(#newVariantRow)').forEach(row => {
+                if (row.dataset.id !== 'new' || row.querySelector('.weight').value) {
+                  variants.push({
+                    id: row.dataset.id === 'new' ? null : row.dataset.id,
+                    weight: parseFloat(row.querySelector('.weight').value),
+                    price_adjustment: parseFloat(row.querySelector('.price').value || 0),
+                    stock: parseInt(row.querySelector('.stock').value || 0),
+                    is_default: row.querySelector('.default-variant').checked
+                  });
+                }
+              });
+
+              fetch('admin/save_weight_variants.php', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  product_id: productId,
+                  variants: variants
+                })
+              }).then(res => res.json())
+                .then(data => {
+                  if (data.status === 'success') {
+                    Swal.fire('Saved!', 'Weight variants updated successfully', 'success');
+                  } else {
+                    Swal.fire('Error', data.message || 'Failed to save variants', 'error');
+                  }
+                });
+            }
+          });
+        });
     }
 
     // Load Deliveries
@@ -591,12 +764,12 @@ $admin = $stmt->fetch(PDO::FETCH_ASSOC);
             if (r.isConfirmed) {
               const driver_id = document.getElementById('driverSelect').value;
               fetch('admin/assign_driver.php', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                  },
-                  body: `pending_id=${pending_id}&driver_id=${driver_id}`
-                })
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: `pending_id=${pending_id}&driver_id=${driver_id}`
+              })
                 .then(r => r.json())
                 .then(res => {
                   if (res.status === 'success') {
@@ -680,12 +853,12 @@ $admin = $stmt->fetch(PDO::FETCH_ASSOC);
       }).then((result) => {
         if (result.isConfirmed) {
           fetch('admin/verify_gcash_payment.php', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-              },
-              body: `pending_id=${orderId}&action=${action}`
-            })
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `pending_id=${orderId}&action=${action}`
+          })
             .then(r => r.json())
             .then(res => {
               if (res.status === 'success') {
@@ -715,12 +888,12 @@ $admin = $stmt->fetch(PDO::FETCH_ASSOC);
       }).then(result => {
         if (result.isConfirmed) {
           fetch('admin/cancel_order_admin.php', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-              },
-              body: 'order_id=' + orderId
-            })
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: 'order_id=' + orderId
+          })
             .then(r => r.json())
             .then(res => {
               if (res.status === 'success') {
@@ -746,12 +919,12 @@ $admin = $stmt->fetch(PDO::FETCH_ASSOC);
       }).then(result => {
         if (result.isConfirmed) {
           fetch('admin/delete_pending_delivery.php', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-              },
-              body: 'order_id=' + orderId
-            })
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: 'order_id=' + orderId
+          })
             .then(r => r.json())
             .then(res => {
               if (res.status === 'success') {
@@ -1100,12 +1273,12 @@ $admin = $stmt->fetch(PDO::FETCH_ASSOC);
       }).then(result => {
         if (result.isConfirmed) {
           fetch('admin/delete_admin_key.php', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-              },
-              body: 'key_id=' + keyId
-            })
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: 'key_id=' + keyId
+          })
             .then(r => r.json())
             .then(res => {
               if (res.status === 'success') {

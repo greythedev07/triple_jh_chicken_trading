@@ -14,13 +14,13 @@ $account_deleted = isset($_GET['account_deleted']) && $_GET['account_deleted'] =
 
 // Pagination settings
 $items_per_page = 12; // Number of products per page
-$current_page = max(1, (int)($_GET['page'] ?? 1));
+$current_page = max(1, (int) ($_GET['page'] ?? 1));
 $offset = ($current_page - 1) * $items_per_page;
 
 try {
   // Get total count for pagination
   $countStmt = $db->query("SELECT COUNT(*) FROM products");
-  $total_products = (int)$countStmt->fetchColumn();
+  $total_products = (int) $countStmt->fetchColumn();
   $total_pages = ceil($total_products / $items_per_page);
 
   // Get products for current page
@@ -41,31 +41,30 @@ try {
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Welcome | Triple JH Chicken Trading</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="stylesheet" href="css/footer_header.css">
   <style>
     html,
     body {
       height: 100%;
       margin: 0;
-      display: flex;
-      flex-direction: column;
-      background-color: #f8f9fb;
       font-family: "Inter", "Segoe UI", sans-serif;
+      background-color: #f8f9fb;
       color: #222;
-    }
-
-    .content-wrapper {
-      flex: 1 0 auto;
       display: flex;
       flex-direction: column;
     }
 
-    .navbar {
-      background-color: #000;
+    body {
+      padding-top: 50px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
     }
 
-    .navbar .nav-link,
-    .navbar-brand {
-      color: #fff !important;
+    main {
+      flex: 1;
+      padding-bottom: 80px;
     }
 
     .hero-section {
@@ -232,146 +231,163 @@ try {
 </head>
 
 <body>
-  <div class="content-wrapper">
-    <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg">
-      <div class="container px-4">
-        <a class="navbar-brand fw-bold" href="index.php">Triple JH</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
-          <span class="navbar-toggler-icon" style="color:#fff">☰</span>
-        </button>
-        <div class="collapse navbar-collapse" id="navMenu">
-          <ul class="navbar-nav ms-auto align-items-center">
-            <li class="nav-item"><a class="nav-link" href="useraccounts/login.php">Login</a></li>
-            <li class="nav-item"><a class="nav-link" href="useraccounts/registration.php">Register</a></li>
-          </ul>
-        </div>
+  <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
+    <div class="container">
+      <a class="navbar-brand d-flex align-items-center" href="dashboard.php">
+        <img src="img/logo.jpg" alt="Triple JH Chicken Trading" style="height: 40px; width: auto; margin-right: 10px;">
+        <span class="d-none d-md-inline">Triple JH Chicken Trading</span>
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+        aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ms-auto align-items-center">
+          <li class="nav-item">
+            <a class="nav-link" href="useraccounts/login.php">
+              <i class="fa-solid fa-right-to-bracket"></i> Login
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="useraccounts/registration.php">
+              <i class="fa-solid fa-user-plus"></i> Register
+            </a>
+          </li>
+        </ul>
       </div>
-    </nav>
+    </div>
+  </nav>
 
-    <?php if ($account_deleted): ?>
-      <div class="container mt-4">
-        <div class="alert alert-success alert-dismissible fade show" role="alert">
-          <strong>Account Deleted Successfully!</strong> Your account and all associated data have been permanently removed.
-          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
+  <?php if ($account_deleted): ?>
+    <div class="container mt-4">
+      <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <strong>Account Deleted Successfully!</strong> Your account and all associated data have been permanently removed.
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
       </div>
+    </div>
+  <?php endif; ?>
+
+  <!-- Hero -->
+  <section class="hero-section">
+    <div class="container">
+      <h1>Freshness You Can Taste, Quality You Can Trust.</h1>
+      <p>Welcome to Triple JH Chicken Trading — your trusted partner for fresh poultry products, directly from our farms
+        to your kitchen.</p>
+      <a href="useraccounts/login.php" class="btn btn-white mt-3 me-2 px-4">Login to Order</a>
+      <a href="useraccounts/registration.php" class="btn btn-outline-light mt-3 px-4">Create Account</a>
+    </div>
+  </section>
+
+  <!-- Products -->
+  <main class="container">
+    <div class="d-flex justify-content-between align-items-center flex-wrap mt-4 mb-3">
+      <h4 class="fw-bold mb-0">Featured Products</h4>
+    </div>
+
+    <?php if (!empty($dbError)): ?>
+      <div class="alert alert-danger">Database error: <?= htmlspecialchars($dbError) ?></div>
     <?php endif; ?>
 
-    <!-- Hero -->
-    <section class="hero-section">
-      <div class="container">
-        <h1>Freshness You Can Taste, Quality You Can Trust.</h1>
-        <p>Welcome to Triple JH Chicken Trading — your trusted partner for fresh poultry products, directly from our farms to your kitchen.</p>
-        <a href="useraccounts/login.php" class="btn btn-white mt-3 me-2 px-4">Login to Order</a>
-        <a href="useraccounts/registration.php" class="btn btn-outline-light mt-3 px-4">Create Account</a>
-      </div>
-    </section>
-
-    <!-- Products -->
-    <main class="container">
-      <div class="d-flex justify-content-between align-items-center flex-wrap mt-4 mb-3">
-        <h4 class="fw-bold mb-0">Featured Products</h4>
-      </div>
-
-      <?php if (!empty($dbError)): ?>
-        <div class="alert alert-danger">Database error: <?= htmlspecialchars($dbError) ?></div>
+    <div id="productGrid">
+      <?php if (count($products) === 0): ?>
+        <div class="text-center col-12">
+          <div class="card p-4">No products found.</div>
+        </div>
       <?php endif; ?>
 
-      <div id="productGrid">
-        <?php if (count($products) === 0): ?>
-          <div class="text-center col-12">
-            <div class="card p-4">No products found.</div>
-          </div>
-        <?php endif; ?>
-
-        <?php foreach ($products as $prod):
-          $imgUrl = '';
-          if (!empty($prod['image'])) {
-            $imgUrl = $prod['image'];
-            if (!preg_match('#^(.+/).+#', $imgUrl)) {
-              $imgUrl = 'img/' . ltrim($imgUrl, '/');
-            }
-          } else {
-            $imgUrl = 'img/no-image.png';
+      <?php foreach ($products as $prod):
+        $imgUrl = '';
+        if (!empty($prod['image'])) {
+          $imgUrl = $prod['image'];
+          if (!preg_match('#^(.+/).+#', $imgUrl)) {
+            $imgUrl = 'img/' . ltrim($imgUrl, '/');
           }
+        } else {
+          $imgUrl = 'img/no-image.png';
+        }
         ?>
-          <div class="product-card">
-            <img src="<?= htmlspecialchars($imgUrl) ?>" alt="<?= htmlspecialchars($prod['name']) ?>" class="product-image">
-            <div class="card-body">
-              <div>
-                <div class="product-title"><?= htmlspecialchars($prod['name']) ?></div>
-                <div class="product-price">₱<?= number_format($prod['price'], 2) ?></div>
-                <div class="product-stock">Stock: <?= (int)$prod['stock'] ?></div>
-              </div>
-              <a href="useraccounts/login.php" class="btn btn-dark mt-3 w-100">Login to Add to Cart</a>
+        <div class="product-card">
+          <img src="<?= htmlspecialchars($imgUrl) ?>" alt="<?= htmlspecialchars($prod['name']) ?>" class="product-image">
+          <div class="card-body">
+            <div>
+              <div class="product-title"><?= htmlspecialchars($prod['name']) ?></div>
+              <div class="product-price">₱<?= number_format($prod['price'], 2) ?></div>
+              <div class="product-stock">Stock: <?= (int) $prod['stock'] ?></div>
             </div>
+            <a href="useraccounts/login.php" class="btn btn-dark mt-3 w-100">Login to Add to Cart</a>
           </div>
-        <?php endforeach; ?>
-      </div>
+        </div>
+      <?php endforeach; ?>
+    </div>
 
-      <?php if ($total_pages > 1): ?>
-        <nav aria-label="Product pagination" class="mt-5">
-          <ul class="pagination justify-content-center">
-            <?php if ($current_page > 1): ?>
-              <li class="page-item">
-                <a class="page-link" href="?page=<?= $current_page - 1 ?>">Previous</a>
-              </li>
+    <?php if ($total_pages > 1): ?>
+      <nav aria-label="Product pagination" class="mt-5">
+        <ul class="pagination justify-content-center">
+          <?php if ($current_page > 1): ?>
+            <li class="page-item">
+              <a class="page-link" href="?page=<?= $current_page - 1 ?>">Previous</a>
+            </li>
+          <?php endif; ?>
+
+          <?php
+          // Calculate page range to display
+          $start_page = max(1, $current_page - 2);
+          $end_page = min($total_pages, $current_page + 2);
+
+          // Show first page if not in range
+          if ($start_page > 1): ?>
+            <li class="page-item">
+              <a class="page-link" href="?page=1">1</a>
+            </li>
+            <?php if ($start_page > 2): ?>
+              <li class="page-item disabled"><span class="page-link">...</span></li>
             <?php endif; ?>
+          <?php endif; ?>
 
-            <?php
-            // Calculate page range to display
-            $start_page = max(1, $current_page - 2);
-            $end_page = min($total_pages, $current_page + 2);
+          <?php for ($i = $start_page; $i <= $end_page; $i++): ?>
+            <li class="page-item <?= $i === $current_page ? 'active' : '' ?>">
+              <a class="page-link" href="?page=<?= $i ?>"><?= $i ?></a>
+            </li>
+          <?php endfor; ?>
 
-            // Show first page if not in range
-            if ($start_page > 1): ?>
-              <li class="page-item">
-                <a class="page-link" href="?page=1">1</a>
-              </li>
-              <?php if ($start_page > 2): ?>
-                <li class="page-item disabled"><span class="page-link">...</span></li>
-              <?php endif; ?>
+          <?php
+          // Show last page if not in range
+          if ($end_page < $total_pages): ?>
+            <?php if ($end_page < $total_pages - 1): ?>
+              <li class="page-item disabled"><span class="page-link">...</span></li>
             <?php endif; ?>
+            <li class="page-item">
+              <a class="page-link" href="?page=<?= $total_pages ?>"><?= $total_pages ?></a>
+            </li>
+          <?php endif; ?>
 
-            <?php for ($i = $start_page; $i <= $end_page; $i++): ?>
-              <li class="page-item <?= $i === $current_page ? 'active' : '' ?>">
-                <a class="page-link" href="?page=<?= $i ?>"><?= $i ?></a>
-              </li>
-            <?php endfor; ?>
+          <?php if ($current_page < $total_pages): ?>
+            <li class="page-item">
+              <a class="page-link" href="?page=<?= $current_page + 1 ?>">Next</a>
+            </li>
+          <?php endif; ?>
+        </ul>
 
-            <?php
-            // Show last page if not in range
-            if ($end_page < $total_pages): ?>
-              <?php if ($end_page < $total_pages - 1): ?>
-                <li class="page-item disabled"><span class="page-link">...</span></li>
-              <?php endif; ?>
-              <li class="page-item">
-                <a class="page-link" href="?page=<?= $total_pages ?>"><?= $total_pages ?></a>
-              </li>
-            <?php endif; ?>
-
-            <?php if ($current_page < $total_pages): ?>
-              <li class="page-item">
-                <a class="page-link" href="?page=<?= $current_page + 1 ?>">Next</a>
-              </li>
-            <?php endif; ?>
-          </ul>
-
-          <div class="text-center mt-3">
-            <small class="text-muted">
-              Showing <?= count($products) ?> of <?= $total_products ?> products
-              (Page <?= $current_page ?> of <?= $total_pages ?>)
-            </small>
-          </div>
-        </nav>
-      <?php endif; ?>
-    </main>
+        <div class="text-center mt-3">
+          <small class="text-muted">
+            Showing <?= count($products) ?> of <?= $total_products ?> products
+            (Page <?= $current_page ?> of <?= $total_pages ?>)
+          </small>
+        </div>
+      </nav>
+    <?php endif; ?>
+  </main>
   </div>
 
   <footer>
-    <div class="container">
-      <small>© <?= date('Y') ?> Triple JH Chicken Trading — All rights reserved.</small>
+    <div class="container text-center">
+      <div class="footer-links">
+        <a href="dashboard.php">Shop</a>
+        <a href="about.php">About</a>
+        <a href="about.php">Terms</a>
+        <a href="about.php">Privacy</a>
+      </div>
+      <p class="copyright">&copy; <?= date('Y') ?> Triple JH Chicken Trading. All rights reserved.</p>
     </div>
   </footer>
 

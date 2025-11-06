@@ -35,6 +35,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $delivery = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if ($delivery) {
+        // Check if this delivery has already been completed to prevent duplicates
+        $checkExisting = $db->prepare("SELECT id FROM history_of_delivery WHERE to_be_delivered_id = ?");
+        $checkExisting->execute([$to_be_delivered_id]);
+        if ($checkExisting->fetch()) {
+            // Already exists in history, redirect back
+            header("Location: ../driver_dashboard.php?delivery_completed=1");
+            exit;
+        }
+
         // Start transaction to ensure data integrity
         $db->beginTransaction();
 
@@ -49,35 +58,85 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             // Step 5: Move to delivery history with preserved order details
+            error_log("Attempting to insert into history_of_delivery with data: " . print_r([
+                'to_be_delivered_id' => $to_be_delivered_id,
+                'driver_id' => $driver_id,
+                'user_id' => $delivery['user_id'],
+                'order_number' => $orderInfo['order_number'],
+                'payment_method' => $orderInfo['payment_method'],
+                'delivery_address' => $delivery['delivery_address'],
+                'payment_received' => $payment_received,
+                'change_given' => $change_given,
+                'delivery_time' => $delivery_time,
+                'proof_image' => $proofPath
+            ], true));
+
             $insert = $db->prepare("INSERT INTO history_of_delivery (to_be_delivered_id, driver_id, user_id, order_number, payment_method, delivery_address, payment_received, change_given, delivery_time, proof_image) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             $insert->execute([$to_be_delivered_id, $driver_id, $delivery['user_id'], $orderInfo['order_number'], $orderInfo['payment_method'], $delivery['delivery_address'], $payment_received, $change_given, $delivery_time, $proofPath]);
             $historyId = $db->lastInsertId();
 
+            error_log("Inserted into history_of_delivery. History ID: $historyId");
+
+            if (!$historyId) {
+                throw new Exception("Failed to insert into history_of_delivery - lastInsertId() returned false");
+            }
+
             // Step 6: Copy delivery items to history
-            $items = $db->prepare("SELECT * FROM to_be_delivered_items WHERE to_be_delivered_id = ?");
-            $items->execute([$to_be_delivered_id]);
+            $itemsStmt = $db->prepare("SELECT * FROM to_be_delivered_items WHERE to_be_delivered_id = ?");
+            $itemsStmt->execute([$to_be_delivered_id]);
+            $items = $itemsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            error_log("Found " . count($items) . " items to copy to history");
+
+            if (count($items) == 0) {
+                throw new Exception("No items found in to_be_delivered_items for delivery");
+            }
+
             foreach ($items as $item) {
+                error_log("Inserting item: product_id=" . $item['product_id'] . ", quantity=" . $item['quantity']);
                 $insertItem = $db->prepare("INSERT INTO history_of_delivery_items (history_id, product_id, quantity, price) VALUES (?, ?, ?, ?)");
                 $insertItem->execute([$historyId, $item['product_id'], $item['quantity'], $item['price']]);
             }
 
-            // Step 7: Mark delivery as completed
-            $update = $db->prepare("UPDATE to_be_delivered SET status = 'delivered' WHERE id = ?");
-            $update->execute([$to_be_delivered_id]);
+            error_log("Successfully copied all items to history");
 
-            // Step 8: Update pending_delivery status to 'delivered' (DO NOT DELETE)
+            // Step 7: Clean up intermediate tables to prevent duplicate display
+            // IMPORTANT: Only delete AFTER history records are successfully created
+
+            error_log("Starting cleanup of intermediate tables");
+
+            // Delete to_be_delivered_items (already copied to history)
+            $deleteToBeDeliveredItems = $db->prepare("DELETE FROM to_be_delivered_items WHERE to_be_delivered_id = ?");
+            $deleteToBeDeliveredItems->execute([$to_be_delivered_id]);
+            error_log("Deleted to_be_delivered_items");
+
+            // Mark the delivery records as completed instead of deleting them to preserve history references
+            $updateToBeDelivered = $db->prepare("UPDATE to_be_delivered SET status = 'delivered' WHERE id = ?");
+            $updateToBeDelivered->execute([$to_be_delivered_id]);
+            error_log("Marked to_be_delivered as delivered");
+
             $updatePending = $db->prepare("UPDATE pending_delivery SET status = 'delivered' WHERE id = ?");
             $updatePending->execute([$delivery['pending_delivery_id']]);
+            error_log("Marked pending_delivery as delivered");
 
             // Commit the transaction
             $db->commit();
+            error_log("Transaction committed successfully!");
 
             header("Location: ../driver_dashboard.php?delivery_completed=1");
             exit;
         } catch (Exception $e) {
             // Rollback on error
-            $db->rollBack();
-            die("Delivery failed: " . $e->getMessage());
+            error_log("Delivery process error: " . $e->getMessage());
+            error_log("Stack trace: " . $e->getTraceAsString());
+
+            if ($db->inTransaction()) {
+                $db->rollBack();
+                error_log("Transaction rolled back");
+            }
+
+            // Better error reporting for debugging
+            die("Delivery failed: " . htmlspecialchars($e->getMessage()) . "<br>Please check the error log for more details.");
         }
     } else {
         die("Invalid delivery.");

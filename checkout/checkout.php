@@ -10,7 +10,7 @@ $user_id = $_SESSION['user_id'];
 try {
     $cartCountStmt = $db->prepare("SELECT SUM(quantity) AS count FROM cart WHERE user_id = ?");
     $cartCountStmt->execute([$user_id]);
-    $cartCount = (int)$cartCountStmt->fetchColumn();
+    $cartCount = (int) $cartCountStmt->fetchColumn();
 } catch (PDOException $e) {
     $cartCount = 0;
 }
@@ -33,22 +33,30 @@ foreach ($cartItems as $item) {
     <meta charset="UTF-8">
     <title>Checkout | Triple JH Chicken Trading</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="../css/footer_header.css">
     <style>
+        html,
         body {
-            background: #f5f6f8;
-            font-family: 'Inter', sans-serif;
+            height: 100%;
+            margin: 0;
+            font-family: "Inter", "Segoe UI", sans-serif;
+            background-color: #f8f9fb;
             color: #222;
             display: flex;
             flex-direction: column;
+        }
+
+        body {
+            padding-top: 50px;
             min-height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
 
-        .navbar {
-            background: #000;
-        }
-
-        .navbar a {
-            color: #fff !important;
+        main {
+            flex: 1;
+            padding-bottom: 80px;
         }
 
         .cart-link {
@@ -99,28 +107,59 @@ foreach ($cartItems as $item) {
         .checkout-btn:hover {
             background: #111;
         }
-
-        footer {
-            background: #000;
-            color: #fff;
-            padding: 1.5rem 0;
-            text-align: center;
-            margin-top: auto;
-            flex-shrink: 0;
-        }
     </style>
 </head>
 
 <body>
-    <nav class="navbar navbar-expand-lg">
-        <div class="container"> <a class="navbar-brand fw-bold" href="../dashboard.php">Triple JH</a>
-            <div class="collapse navbar-collapse">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item"><a class="nav-link" href="../dashboard.php">Shop</a></li>
-                    <li class="nav-item"><a class="nav-link cart-link active" href="../carts/cart.php">Cart <span id="cartBadge" class="cart-badge" style="<?= $cartCount > 0 ? '' : 'display:none' ?>"><?= $cartCount > 0 ? $cartCount : '' ?></span></a></li>
-                    <li class="nav-item"><a class="nav-link" href="../orders/orders.php">Orders</a></li>
-                    <li class="nav-item"><a class="nav-link" href="../useraccounts/settings.php">Settings</a></li>
-                    <li class="nav-item"><a class="nav-link" href="../logout.php">Logout</a></li>
+    <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center" href="../dashboard.php">
+                <img src="../img/logo.jpg" alt="Triple JH Chicken Trading"
+                    style="height: 40px; width: auto; margin-right: 10px;">
+                <span class="d-none d-md-inline">Triple JH Chicken Trading</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto align-items-center">
+                    <li class="nav-item">
+                        <a class="nav-link" href="../dashboard.php">
+                            <i class="fas fa-home"></i> Shop
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="../orders/orders.php">
+                            <i class="fas fa-shopping-bag"></i> Orders
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="../about.php">
+                            <i class="fas fa-info-circle"></i> About
+                        </a>
+                    </li>
+                    <li class="nav-item me-3">
+                        <a class="nav-link position-relative" href="../carts/cart.php">
+                            <i class="fas fa-shopping-cart"></i>
+                            <?php if ($cartCount > 0): ?>
+                                <span
+                                    class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                    <?= $cartCount ?>
+                                </span>
+                            <?php endif; ?>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="../useraccounts/settings.php">
+                            <i class="fas fa-user"></i> Account
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="../logout.php">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </a>
+                    </li>
                 </ul>
             </div>
         </div>
@@ -133,13 +172,26 @@ foreach ($cartItems as $item) {
                     <div class="card p-4">
                         <h5 class="fw-bold mb-3">Delivery Information</h5>
                         <div class="row g-3">
-                            <div class="col-md-6"> <label class="form-label">First Name</label> <input type="text" class="form-control" name="firstname" value="<?= htmlspecialchars($user['firstname']) ?>" required> </div>
-                            <div class="col-md-6"> <label class="form-label">Last Name</label> <input type="text" class="form-control" name="lastname" value="<?= htmlspecialchars($user['lastname']) ?>" required> </div>
-                            <div class="col-md-6"> <label class="form-label">Phone Number</label> <input type="text" class="form-control" name="phonenumber" value="<?= htmlspecialchars($user['phonenumber']) ?>" required> </div>
-                            <div class="col-md-6"> <label class="form-label">Email</label> <input type="email" class="form-control" name="email" value="<?= htmlspecialchars($user['email']) ?>" readonly> </div>
-                            <div class="col-12"> <label class="form-label">Street Address</label> <input type="text" class="form-control" name="address" value="<?= htmlspecialchars($user['address']) ?>" required> </div>
-                            <div class="col-md-6"> <label class="form-label">Barangay</label> <select class="form-select" name="barangay" required>
-                                    <option value="<?= htmlspecialchars($user['barangay']) ?>" selected><?= htmlspecialchars($user['barangay']) ?></option>
+                            <div class="col-md-6"> <label class="form-label">First Name</label> <input type="text"
+                                    class="form-control" name="firstname"
+                                    value="<?= htmlspecialchars($user['firstname']) ?>" required> </div>
+                            <div class="col-md-6"> <label class="form-label">Last Name</label> <input type="text"
+                                    class="form-control" name="lastname"
+                                    value="<?= htmlspecialchars($user['lastname']) ?>" required> </div>
+                            <div class="col-md-6"> <label class="form-label">Phone Number</label> <input type="text"
+                                    class="form-control" name="phonenumber"
+                                    value="<?= htmlspecialchars($user['phonenumber']) ?>" required> </div>
+                            <div class="col-md-6"> <label class="form-label">Email</label> <input type="email"
+                                    class="form-control" name="email" value="<?= htmlspecialchars($user['email']) ?>"
+                                    readonly> </div>
+                            <div class="col-12"> <label class="form-label">Street Address</label> <input type="text"
+                                    class="form-control" name="address"
+                                    value="<?= htmlspecialchars($user['address']) ?>" required> </div>
+                            <div class="col-md-6"> <label class="form-label">Barangay</label> <select
+                                    class="form-select" name="barangay" required>
+                                    <option value="<?= htmlspecialchars($user['barangay']) ?>" selected>
+                                        <?= htmlspecialchars($user['barangay']) ?>
+                                    </option>
                                     <option value="">Select Barangay</option>
                                     <option>Banaban</option>
                                     <option>Baybay</option>
@@ -603,8 +655,11 @@ foreach ($cartItems as $item) {
                                     <option>Sto. Tomas</option>
                                     <option>Tumana</option>
                                 </select> </div>
-                            <div class="col-md-6"> <label class="form-label">City / Municipality</label> <select class="form-select" name="city" required>
-                                    <option value="<?= htmlspecialchars($user['city']) ?>" selected><?= htmlspecialchars($user['city']) ?></option>
+                            <div class="col-md-6"> <label class="form-label">City / Municipality</label> <select
+                                    class="form-select" name="city" required>
+                                    <option value="<?= htmlspecialchars($user['city']) ?>" selected>
+                                        <?= htmlspecialchars($user['city']) ?>
+                                    </option>
                                     <option value="">Select City / Municipality</option>
                                     <option>Angat</option>
                                     <option>Balagtas</option>
@@ -630,14 +685,19 @@ foreach ($cartItems as $item) {
                                     <option>San Rafael</option>
                                     <option>Santa Maria</option>
                                 </select> </div>
-                            <div class="col-md-6"> <label class="form-label">Zip Code</label> <input type="text" class="form-control" name="zipcode" value="<?= htmlspecialchars($user['zipcode']) ?>" required> </div>
-                            <div class="col-md-6"> <label class="form-label">Landmark</label> <input type="text" class="form-control" name="landmark" value="<?= htmlspecialchars($user['landmark']) ?>"> </div>
+                            <div class="col-md-6"> <label class="form-label">Zip Code</label> <input type="text"
+                                    class="form-control" name="zipcode"
+                                    value="<?= htmlspecialchars($user['zipcode']) ?>" required> </div>
+                            <div class="col-md-6"> <label class="form-label">Landmark</label> <input type="text"
+                                    class="form-control" name="landmark"
+                                    value="<?= htmlspecialchars($user['landmark']) ?>"> </div>
                         </div>
                     </div>
                     <div class="card p-4 mt-4">
                         <h5 class="fw-bold mb-3">Payment Method</h5>
                         <div class="form-check mb-3">
-                            <input class="form-check-input" type="radio" name="payment_method" id="cod" value="Cash on Delivery" checked>
+                            <input class="form-check-input" type="radio" name="payment_method" id="cod"
+                                value="Cash on Delivery" checked>
                             <label class="form-check-label" for="cod">Cash on Delivery</label>
                         </div>
                         <div class="form-check">
@@ -651,7 +711,8 @@ foreach ($cartItems as $item) {
                                 <h6 class="fw-bold mb-2">GCash Payment Instructions:</h6>
                                 <ol class="mb-3">
                                     <li>Scan the QR code below with your GCash app</li>
-                                    <li>Enter the exact amount: <strong>₱<span id="gcash-amount"><?= number_format($total, 2) ?></span></strong></li>
+                                    <li>Enter the exact amount: <strong>₱<span
+                                                id="gcash-amount"><?= number_format($total, 2) ?></span></strong></li>
                                     <li>Complete the payment in your GCash app</li>
                                     <li>Copy the reference number from your GCash transaction</li>
                                     <li>Paste the reference number in the field below</li>
@@ -659,15 +720,20 @@ foreach ($cartItems as $item) {
 
                                 <!-- QR Code Display -->
                                 <div class="text-center mb-3">
-                                    <img src="../uploads/qr_codes/gcash_qr_sample.png" alt="GCash QR Code" class="img-fluid" style="max-width: 200px; border: 1px solid #ddd; border-radius: 8px;">
+                                    <img src="../uploads/qr_codes/gcash_qr_sample.png" alt="GCash QR Code"
+                                        class="img-fluid"
+                                        style="max-width: 200px; border: 1px solid #ddd; border-radius: 8px;">
                                     <p class="small text-muted mt-2">Scan this QR code with your GCash app</p>
                                 </div>
 
                                 <!-- Reference Number Input -->
                                 <div class="mb-3">
-                                    <label for="gcash_reference" class="form-label fw-bold">GCash Reference Number <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" id="gcash_reference" name="gcash_reference" placeholder="Enter your GCash reference number">
-                                    <div class="form-text">You can find this in your GCash app after completing the payment</div>
+                                    <label for="gcash_reference" class="form-label fw-bold">GCash Reference Number <span
+                                            class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="gcash_reference" name="gcash_reference"
+                                        placeholder="Enter your GCash reference number">
+                                    <div class="form-text">You can find this in your GCash app after completing the
+                                        payment</div>
                                 </div>
                             </div>
                         </div>
@@ -675,22 +741,39 @@ foreach ($cartItems as $item) {
                 </div> <!-- Order Summary -->
                 <div class="col-lg-5">
                     <div class="card p-4">
-                        <h5 class="fw-bold mb-3">Order Summary</h5> <?php foreach ($cartItems as $item): ?> <div class="d-flex justify-content-between small mb-2"> <span><?= htmlspecialchars($item['name']) ?> × <?= (int)$item['quantity'] ?></span> <span>₱<?= number_format($item['price'] * $item['quantity'], 2) ?></span> </div> <?php endforeach; ?>
+                        <h5 class="fw-bold mb-3">Order Summary</h5> <?php foreach ($cartItems as $item): ?>
+                            <div class="d-flex justify-content-between small mb-2">
+                                <span><?= htmlspecialchars($item['name']) ?> × <?= (int) $item['quantity'] ?></span>
+                                <span>₱<?= number_format($item['price'] * $item['quantity'], 2) ?></span>
+                            </div>
+                        <?php endforeach; ?>
                         <hr>
-                        <div class="d-flex justify-content-between fw-bold"> <span>Total</span> <span>₱<?= number_format($total, 2) ?></span> </div> <input type="hidden" name="total" value="<?= $total ?>"> <button type="submit" class="checkout-btn mt-3">Place Order</button>
+                        <div class="d-flex justify-content-between fw-bold"> <span>Total</span>
+                            <span>₱<?= number_format($total, 2) ?></span>
+                        </div> <input type="hidden" name="total" value="<?= $total ?>"> <button type="submit"
+                            class="checkout-btn mt-3">Place Order</button>
                     </div>
                 </div>
             </div>
         </form>
     </div>
+
     <footer>
-        <div class="container"> <small>© <?= date('Y') ?> Triple JH Chicken Trading — All rights reserved.</small> </div>
+        <div class="container text-center">
+            <div class="footer-links">
+                <a href="../dashboard.php">Shop</a>
+                <a href="../about.php">About</a>
+                <a href="../about.php">Terms</a>
+                <a href="../about.php">Privacy</a>
+            </div>
+            <p class="copyright">&copy; <?= date('Y') ?> Triple JH Chicken Trading. All rights reserved.</p>
+        </div>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // Handle payment method toggle
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             const codRadio = document.getElementById('cod');
             const gcashRadio = document.getElementById('gcash');
             const gcashSection = document.getElementById('gcash-payment-section');
@@ -716,7 +799,7 @@ foreach ($cartItems as $item) {
             gcashRadio.addEventListener('change', togglePaymentMethod);
 
             // Form validation for GCash
-            document.querySelector('form').addEventListener('submit', function(e) {
+            document.querySelector('form').addEventListener('submit', function (e) {
                 if (gcashRadio.checked) {
                     const reference = gcashReferenceInput.value.trim();
                     if (!reference) {

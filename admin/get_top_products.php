@@ -16,10 +16,15 @@ try {
             SELECT product_id, quantity as quantity_sold
             FROM pending_delivery_items pdi
             JOIN pending_delivery pd ON pdi.pending_delivery_id = pd.id
-            WHERE pd.status IN ('delivered', 'to be delivered', 'out for delivery', 'assigned', 'picked_up')
+            WHERE pd.status IN ('to be delivered', 'out for delivery', 'assigned', 'picked_up')
             UNION ALL
             SELECT product_id, quantity as quantity_sold
             FROM history_of_delivery_items hdi
+            JOIN history_of_delivery hod ON hdi.history_id = hod.id
+            WHERE hod.id IN (
+                SELECT MIN(id) FROM history_of_delivery
+                GROUP BY to_be_delivered_id
+            )
         ) as all_items ON p.id = all_items.product_id
         GROUP BY p.id, p.name
         ORDER BY total_sold DESC

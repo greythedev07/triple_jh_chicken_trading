@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS drivers (
 CREATE TABLE IF NOT EXISTS products (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(200) NOT NULL,
+    description TEXT,
     price DECIMAL(10,2) NOT NULL,
     stock INT DEFAULT 0,
     image VARCHAR(500),
@@ -176,10 +177,10 @@ CREATE TABLE IF NOT EXISTS gcash_qr_codes (
 INSERT INTO admin_keys (admin_key) VALUES ('80085') ON DUPLICATE KEY UPDATE admin_key = admin_key;
 
 -- Insert sample products
-INSERT INTO products (name, price, stock, image) VALUES 
-('Whole Chicken', 180.00, 50, NULL),
-('Chicken Wings', 120.00, 30, NULL),
-('Chicken Breasts', 150.00, 25, NULL)
+INSERT INTO products (name, description, price, stock, image) VALUES 
+('Whole Chicken', 'Fresh whole chicken, perfect for roasting or grilling. Approximately 1.5-2kg per piece.', 180.00, 50, NULL),
+('Chicken Wings', 'Juicy chicken wings, ideal for frying or baking. Pack of 1kg (about 10-12 pieces).', 120.00, 30, NULL),
+('Chicken Breasts', 'Tender chicken breast fillets, great for stir-fries or salads. Pack of 1kg (about 4-5 pieces).', 150.00, 25, NULL)
 ON DUPLICATE KEY UPDATE name = name;
 
 -- Insert sample GCash QR code entry

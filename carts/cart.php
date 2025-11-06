@@ -13,7 +13,7 @@ $user_id = $_SESSION['user_id'];
 try {
   $cartStmt = $db->prepare("SELECT SUM(quantity) AS count FROM cart WHERE user_id = ?");
   $cartStmt->execute([$user_id]);
-  $cartCount = (int)$cartStmt->fetchColumn();
+  $cartCount = (int) $cartStmt->fetchColumn();
 } catch (PDOException $e) {
   $cartCount = 0;
 }
@@ -27,7 +27,8 @@ try {
       p.id AS product_id,
       p.name,
       p.price,
-      p.image
+      p.image,
+      p.stock AS product_stock
     FROM cart c
     JOIN products p ON c.product_id = p.id
     WHERE c.user_id = ?
@@ -51,33 +52,30 @@ foreach ($cartItems as $item) {
   <meta charset="UTF-8" />
   <title>Your Cart | Triple JH Chicken Trading</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="stylesheet" href="../css/footer_header.css">
   <style>
     html,
     body {
       height: 100%;
       margin: 0;
-      padding: 0;
+      font-family: "Inter", "Segoe UI", sans-serif;
+      background-color: #f8f9fb;
+      color: #222;
+      display: flex;
+      flex-direction: column;
     }
 
     body {
+      padding-top: 50px;
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
-      background: #f3f5f7;
-      font-family: "Inter", sans-serif;
-      color: #111;
     }
 
     main {
       flex: 1;
-    }
-
-    .navbar {
-      background-color: #000;
-    }
-
-    .navbar .nav-link,
-    .navbar-brand {
-      color: #fff !important;
+      padding-bottom: 80px;
     }
 
     .cart-link {
@@ -206,15 +204,6 @@ foreach ($cartItems as $item) {
       background: #111;
     }
 
-    footer {
-      background: #000;
-      color: #fff;
-      padding: 1.5rem 0;
-      text-align: center;
-      margin-top: auto;
-      flex-shrink: 0;
-    }
-
     @media(max-width: 768px) {
       .cart-item {
         flex-direction: column;
@@ -231,16 +220,54 @@ foreach ($cartItems as $item) {
 
 <body>
   <!-- Header -->
-  <nav class="navbar navbar-expand-lg">
+  <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
     <div class="container">
-      <a class="navbar-brand fw-bold" href="../dashboard.php">Triple JH</a>
-      <div class="collapse navbar-collapse">
-        <ul class="navbar-nav ms-auto">
-          <li class="nav-item"><a class="nav-link" href="../dashboard.php">Shop</a></li>
-          <li class="nav-item"><a class="nav-link cart-link active" href="../carts/cart.php">Cart <span id="cartBadge" class="cart-badge" style="<?= $cartCount > 0 ? '' : 'display:none' ?>"><?= $cartCount > 0 ? $cartCount : '' ?></span></a></li>
-          <li class="nav-item"><a class="nav-link" href="../orders/orders.php">Orders</a></li>
-          <li class="nav-item"><a class="nav-link" href="../useraccounts/settings.php">Settings</a></li>
-          <li class="nav-item"><a class="nav-link" href="../logout.php">Logout</a></li>
+      <a class="navbar-brand d-flex align-items-center" href="../dashboard.php">
+        <img src="../img/logo.jpg" alt="Triple JH Chicken Trading"
+          style="height: 40px; width: auto; margin-right: 10px;">
+        <span class="d-none d-md-inline">Triple JH Chicken Trading</span>
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+        aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ms-auto align-items-center">
+          <li class="nav-item">
+            <a class="nav-link" href="../dashboard.php">
+              <i class="fas fa-home"></i> Shop
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="../about.php">
+              <i class="fas fa-info-circle"></i> About
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="../orders/orders.php">
+              <i class="fas fa-shopping-bag"></i> Orders
+            </a>
+          </li>
+          <li class="nav-item active me-3">
+            <a class="nav-link position-relative" href="../carts/cart.php">
+              <i class="fas fa-shopping-cart"></i> Cart
+              <?php if ($cartCount > 0): ?>
+                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                  <?= $cartCount ?>
+                </span>
+              <?php endif; ?>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="../useraccounts/settings.php">
+              <i class="fas fa-user"></i>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="../logout.php">
+              <i class="fas fa-sign-out-alt"></i>
+            </a>
+          </li>
         </ul>
       </div>
     </div>
@@ -249,7 +276,8 @@ foreach ($cartItems as $item) {
   <main>
     <div class="container cart-container">
       <h1>Your cart</h1>
-      <p><a href="../dashboard.php" class="text-decoration-none text-dark small">Not ready to checkout? <strong>Continue Shopping</strong></a></p>
+      <p><a href="../dashboard.php" class="text-decoration-none text-dark small">Not ready to checkout? <strong>Continue
+            Shopping</strong></a></p>
       <div class="row mt-4 g-4">
         <div class="col-lg-8">
           <div class="cart-left">
@@ -258,25 +286,24 @@ foreach ($cartItems as $item) {
             <?php else: ?>
               <?php foreach ($cartItems as $item): ?>
                 <div class="cart-item">
-                  <img src="../<?= htmlspecialchars($item['image'] ?? 'img/no-image.png') ?>" alt="<?= htmlspecialchars($item['name']) ?>">
+                  <img src="../<?= htmlspecialchars($item['image'] ?? 'img/no-image.png') ?>"
+                    alt="<?= htmlspecialchars($item['name']) ?>">
                   <div class="item-info flex-grow-1">
                     <h5><?= htmlspecialchars($item['name']) ?></h5>
-                    <form method="POST" action="update_cart.php" class="d-inline">
+                    <form method="POST" action="update_cart.php" class="d-inline cart-quantity-form">
                       <input type="hidden" name="cart_id" value="<?= $item['cart_id'] ?>">
                       <div class="d-flex align-items-center mb-2">
                         <label for="qty-<?= $item['cart_id'] ?>" class="me-2 small">Quantity:</label>
-                        <input
-                          type="number"
-                          id="qty-<?= $item['cart_id'] ?>"
-                          name="quantity"
-                          value="<?= (int)$item['quantity'] ?>"
-                          min="1"
-                          class="form-control form-control-sm"
-                          style="width: 70px; display:inline-block;">
-                        <button type="submit" class="btn btn-sm btn-outline-dark ms-2">Update</button>
+                        <input type="number" id="qty-<?= $item['cart_id'] ?>" name="quantity"
+                          value="<?= (int) $item['quantity'] ?>" min="1"
+                          class="form-control form-control-sm cart-quantity-input"
+                          style="width: 70px; display:inline-block;" <?= ($item['product_stock'] ?? 0) <= 0 ? 'disabled' : '' ?>>
                       </div>
                     </form>
-                    <div class="price">₱<?= number_format($item['price'], 2) ?></div>
+                    <div class="price mb-1">₱<?= number_format($item['price'], 2) ?></div>
+                    <?php if (($item['product_stock'] ?? 0) <= 0): ?>
+                      <span class="badge bg-danger">Out of stock</span>
+                    <?php endif; ?>
                     <form method="POST" action="remove_from_cart.php" class="d-inline">
                       <input type="hidden" name="cart_id" value="<?= $item['cart_id'] ?>">
                       <button class="remove-btn" type="submit">Remove</button>
@@ -298,10 +325,7 @@ foreach ($cartItems as $item) {
             <div class="summary-row fw-bold"><span>Total</span><span>₱<?= number_format($total, 2) ?></span></div>
             <form action="../checkout/checkout.php" method="POST">
               <input type="hidden" name="total" value="<?= htmlspecialchars($total) ?>">
-              <button
-                type="submit"
-                class="checkout-btn"
-                <?= empty($cartItems) ? 'disabled style="background:#ccc;cursor:not-allowed;"' : '' ?>>
+              <button type="submit" class="checkout-btn" <?= empty($cartItems) ? 'disabled style="background:#ccc;cursor:not-allowed;"' : '' ?>>
                 Continue to checkout
               </button>
             </form>
@@ -312,13 +336,39 @@ foreach ($cartItems as $item) {
     </div>
   </main>
 
+
   <footer>
-    <div class="container">
-      <small>© <?= date('Y') ?> Triple JH Chicken Trading — All rights reserved.</small>
+    <div class="container text-center">
+      <div class="footer-links">
+        <a href="../dashboard.php">Shop</a>
+        <a href="../about.php">About</a>
+        <a href="../about.php">Terms</a>
+        <a href="../about.php">Privacy</a>
+      </div>
+      <p class="copyright">&copy; <?= date('Y') ?> Triple JH Chicken Trading. All rights reserved.</p>
     </div>
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('.cart-quantity-input').forEach(input => {
+        input.addEventListener('change', () => {
+          const form = input.closest('form');
+          if (!form) {
+            return;
+          }
+
+          const quantity = parseInt(input.value, 10);
+          if (!Number.isFinite(quantity) || quantity < 1) {
+            input.value = 1;
+          }
+
+          form.submit();
+        });
+      });
+    });
+  </script>
 </body>
 
 </html>

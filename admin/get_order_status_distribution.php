@@ -17,9 +17,14 @@ try {
             SUM(CASE WHEN status = 'delivered' THEN 1 ELSE 0 END) as delivered,
             SUM(CASE WHEN status IN ('cancelled', 'canceled') THEN 1 ELSE 0 END) as cancelled
         FROM (
-            SELECT status FROM pending_delivery
-            UNION ALL
-            SELECT 'delivered' as status FROM history_of_delivery
+            SELECT status FROM pending_delivery WHERE status != 'delivered'
+            UNION
+            SELECT 'delivered' as status 
+            FROM history_of_delivery hod
+            WHERE hod.id IN (
+                SELECT MIN(id) FROM history_of_delivery
+                GROUP BY to_be_delivered_id
+            )
         ) as combined_orders
     ");
     $stmt->execute();
