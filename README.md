@@ -136,17 +136,24 @@ chmod 755 uploads/qr_codes/
 
 ### Database Schema
 
-The system includes the following main tables:
+The database schema is defined in `database_setup.sql` and includes the following tables:
 
-- `users` - Customer accounts
-- `drivers` - Driver accounts and vehicle information
-- `admins` - Admin accounts
-- `products` - Product catalog
-- `pending_delivery` - Active orders
-- `to_be_delivered` - Orders in transit
-- `history_of_delivery` - Completed deliveries
-- `cart` - Shopping cart items
-- `gcash_qr_codes` - Payment QR codes
+-   **Core Tables:**
+    -   `users`: Customer information and accounts.
+    -   `admins`: Admin user accounts with special privileges.
+    -   `drivers`: Driver accounts and vehicle information.
+    -   `products`: Product catalog with pricing and stock.
+    -   `cart`: Shopping cart items for users.
+-   **Order Management Tables:**
+    -   `pending_delivery`: Orders waiting for driver assignment/pickup.
+    -   `pending_delivery_items`: Items in pending orders.
+    -   `to_be_delivered`: Orders picked up and ready for delivery.
+    -   `to_be_delivered_items`: Items in active deliveries.
+    -   `history_of_delivery`: Completed delivery records.
+    -   `history_of_delivery_items`: Items in completed deliveries.
+-   **Payment & System Tables:**
+    -   `gcash_qr_codes`: GCash QR code information for payments.
+    -   `admin_keys`: Admin registration keys.
 
 ## 👥 User Roles
 
@@ -195,32 +202,44 @@ The system includes the following main tables:
 
 ```
 commissioned_app/
-├── admin/                    # Admin management files
-│   ├── add_product.php
-│   ├── assign_driver.php
-│   ├── verify_gcash_payment.php
-│   └── ...
-├── adminaccounts/           # Admin authentication
-├── carts/                   # Shopping cart functionality
-├── checkout/                # Checkout process
-├── drivers/                 # Driver management
-├── orders/                  # Order management
-├── useraccounts/            # User authentication
-├── includes/                # Helper functions
-├── uploads/                 # File uploads
-│   ├── deliveries/          # Delivery proof images
-│   ├── pickups/             # Pickup proof images
-│   ├── items/               # Product images
-│   └── qr_codes/            # Payment QR codes
-├── css/                     # Bootstrap CSS files
-├── js/                      # JavaScript files
-├── config.php               # Database configuration
-├── database_setup.sql       # Database schema
-├── index.php                # Landing page
-├── dashboard.php            # Customer dashboard
-├── driver_dashboard.php     # Driver dashboard
-├── admin_dashboard.php      # Admin dashboard
-└── README.md               # This file
+├── admin/
+│   ├── ... (Admin-specific PHP scripts for managing products, orders, etc.)
+├── adminaccounts/
+│   ├── ... (Admin login and registration)
+├── cache/
+├── carts/
+│   ├── ... (Shopping cart management)
+├── checkout/
+│   ├── ... (Checkout process)
+├── css/
+│   ├── ... (Bootstrap and custom CSS)
+├── drivers/
+│   ├── ... (Driver login, registration, and delivery management)
+├── img/
+│   ├── ... (Image assets)
+├── includes/
+│   ├── ... (Helper functions)
+├── js/
+│   ├── ... (Bootstrap and custom JavaScript)
+├── orders/
+│   ├── ... (Order management for users)
+├── uploads/
+│   ├── deliveries/
+│   ├── items/
+│   ├── pickups/
+│   └── qr_codes/
+├── useraccounts/
+│   ├── ... (User login and registration)
+├── about.php
+├── admin_dashboard.php
+├── config.php
+├── dashboard.php
+├── database_setup.sql
+├── driver_dashboard.php
+├── get_product_details.php
+├── index.php
+├── logout.php
+└── README.md
 ```
 
 ## 📖 Usage Guide
@@ -315,4 +334,4 @@ For support and questions:
 
 **Made with ❤️ for Triple JH Chicken Trading**
 
-_Last updated: December 2024_
+_Last updated: November 2025_
