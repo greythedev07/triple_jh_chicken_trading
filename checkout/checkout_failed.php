@@ -16,6 +16,7 @@ $error_message = $_GET['error'] ?? 'An unknown error occurred during checkout.';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Checkout Failed | Triple JH Chicken Trading</title>
+    <link rel="icon" href="../img/logo.ico" type="image/x-icon">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         :root {

@@ -22,6 +22,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <title>Order Success | Triple JH Chicken Trading</title>
+    <link rel="icon" href="../img/logo.ico" type="image/x-icon">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         :root {

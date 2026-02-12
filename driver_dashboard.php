@@ -143,6 +143,7 @@ $total_history_pages = ceil($total_history_count / $items_per_page);
 <head>
     <meta charset="UTF-8">
     <title>Driver Dashboard | Triple JH Chicken Trading</title>
+    <link rel="icon" href="img/logo.ico" type="image/x-icon">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
