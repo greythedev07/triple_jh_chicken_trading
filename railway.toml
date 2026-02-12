@@ -2,6 +2,6 @@
 builder = "NIXPACKS"
 
 [deploy]
-startCommand = "mkdir -p /app/uploads/items /app/uploads/deliveries /app/uploads/pickups /app/uploads/qr_codes && chmod -R 777 /app/uploads && node /assets/scripts/prestart.mjs /assets/nginx.template.conf /nginx.conf && (php-fpm -y /assets/php-fpm.conf & nginx -c /nginx.conf)"
+startCommand = "mkdir -p /app/uploads/items /app/uploads/deliveries /app/uploads/pickups /app/uploads/qr_codes && chmod -R 777 /app/uploads && cp uploads/qr_codes/gcash_qr_sample.png /app/uploads/qr_codes/gcash_qr_sample.png && node /assets/scripts/prestart.mjs /assets/nginx.template.conf /nginx.conf && (php-fpm -y /assets/php-fpm.conf & nginx -c /nginx.conf)"
 healthcheckPath = "/health.php"
 healthcheckTimeout = 100
