@@ -2185,82 +2185,8 @@ function viewGCashScreenshot(orderId, screenshotPath, orderNumber) {
         });
     }
 
-    // Function to load top products
-    function loadTopProducts() {
-      const container = document.getElementById('topProducts');
-      if (!container) {
-        console.error('Top products container not found');
-        return;
-      }
-
-      container.innerHTML = '<div class="text-center py-3"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
-
-      fetch('admin/get_top_products.php')
-        .then(async res => {
-          const data = await res.json();
-
-          if (!res.ok) {
-            throw new Error(data.message || 'Network response was not ok');
-          }
-
-          return data;
-        })
-        .then(response => {
-          if (response.status === 'error') {
-            throw new Error(response.message || 'Unknown error occurred');
-          }
-
-          const products = response.data || [];
-
-          if (products.length === 0) {
-            container.innerHTML = `
-              <div class="alert alert-info">
-                <i class="bi bi-info-circle"></i> No product data available yet.
-                <div class="small mt-2">The system will show top products here as orders are completed.</div>
-                ${response.query ? `<div class="small text-muted mt-2">Query: <code>${response.query}</code></div>` : ''}
-              </div>`;
-            return;
-          }
-
-          let html = '<div class="list-group">';
-          products.forEach((product, index) => {
-            const stars = Math.round(product.average_rating || 0);
-            const starHtml = '<i class="bi bi-star-fill text-warning"></i>'.repeat(stars) +
-                            '<i class="bi bi-star text-muted"></i>'.repeat(5 - stars);
-
-            html += `
-              <div class="list-group-item">
-                <div class="d-flex justify-content-between align-items-center">
-                  <div>
-                    <h6 class="mb-1">${product.name || 'Unnamed Product'}</h6>
-                    <div class="small text-muted">
-                      ${product.total_sold || 0} sold • ${starHtml} (${product.review_count || 0} reviews)
-                    </div>
-                  </div>
-                  <span class="badge bg-primary rounded-pill">#${index + 1}</span>
-                </div>
-              </div>
-            `;
-          });
-          html += '</div>';
-          container.innerHTML = html;
-        })
-        .catch(error => {
-          console.error('Error loading top products:', error);
-          container.innerHTML = `
-            <div class="alert alert-danger">
-              <i class="bi bi-exclamation-triangle"></i> Failed to load top products.
-              <div class="small mt-1">${error.message || 'Please try again later.'}</div>
-              <button onclick="loadTopProducts()" class="btn btn-sm btn-outline-secondary mt-2">
-                <i class="bi bi-arrow-clockwise"></i> Retry
-              </button>
-            </div>`;
-        });
-    }
-
     // Load Analytics
     function loadAnalytics() {
-      // Load sales summary
       fetch('admin/get_sales_summary.php')
         .then(res => {
           if (!res.ok) {
@@ -2299,22 +2225,35 @@ function viewGCashScreenshot(orderId, screenshotPath, orderNumber) {
               ${data.weekStart} to ${data.weekEnd}
             </div>
           `;
-        })
-        .catch(error => {
-          console.error('Error loading sales summary:', error);
-          const container = document.getElementById('salesSummary') || document.body;
-          container.innerHTML = `
-            <div class="alert alert-warning">
-              <i class="bi bi-exclamation-triangle"></i> Failed to load sales data.
-              <div class="small mt-1">${error.message || 'Please try again later.'}</div>
-              <button onclick="loadAnalytics()" class="btn btn-sm btn-outline-secondary mt-2">
-                <i class="bi bi-arrow-clockwise"></i> Retry
-              </button>
-            </div>`;
         });
 
-      // Load top products using the standalone function
-      loadTopProducts();
+      fetch('/admin/get_top_products.php')
+        .then(res => res.json())
+        .then(data => {
+          const container = document.getElementById('topProducts');
+          if (!Array.isArray(data) || data.length === 0) {
+            container.innerHTML = '<p class="text-muted">No data available</p>';
+            return;
+          }
+
+          const topThree = data.slice(0, 3);
+          container.innerHTML = topThree.map((product, i) => {
+            const totalSold = product.total_sold ?? 0;
+            const avg = Number(product.average_rating ?? 0).toFixed(1);
+            const reviewCount = Number(product.review_count ?? 0);
+            const reviewLabel = `${reviewCount} review${reviewCount === 1 ? '' : 's'}`;
+
+            return `
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <div>
+                  <span class="fw-semibold">${i + 1}. ${product.name}</span><br>
+                  <small class="text-muted">Avg rating: ${avg} / 5 (${reviewLabel})</small>
+                </div>
+                <span class="badge bg-primary">${totalSold} sold</span>
+              </div>
+            `;
+          }).join('');
+        });
 
       fetch('admin/get_order_status_distribution.php')
         .then(res => res.json())
