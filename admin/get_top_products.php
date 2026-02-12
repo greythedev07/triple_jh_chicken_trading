@@ -60,11 +60,11 @@ try {
             LEFT JOIN parent_products pp ON p.parent_id = pp.id
 
             -- Get quantities from history of delivered items
+            -- Note: All records in history_of_delivery are considered delivered
             LEFT JOIN (
                 SELECT hdi.product_id, hdi.quantity
                 FROM history_of_delivery_items hdi
                 JOIN history_of_delivery hod ON hdi.history_id = hod.id
-                WHERE hod.status = 'delivered'
             ) hdi ON p.id = hdi.product_id
 
             -- Get quantities from pending deliveries that are completed
