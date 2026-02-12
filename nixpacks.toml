@@ -1,0 +1,11 @@
+[phases.setup]
+cmds = [
+    "mkdir -p /app/uploads/items /app/uploads/deliveries /app/uploads/pickups /app/uploads/qr_codes /app/uploads/gcash_screenshots",
+    "chmod -R 777 /app/uploads"
+]
+
+[phases.install]
+cmds = ["composer install --no-dev"]
+
+[start]
+cmd = "apache2-foreground"
