@@ -2227,7 +2227,7 @@ function viewGCashScreenshot(orderId, screenshotPath, orderNumber) {
           `;
         });
 
-      fetch('/admin/get_top_products.php')
+      fetch('admin/get_top_products.php')
         .then(res => res.json())
         .then(data => {
           const container = document.getElementById('topProducts');
