@@ -8,7 +8,28 @@ cmds = [
 cmds = ["composer install --no-dev"]
 
 [start]
-# Use a script that starts Apache in the background and runs a health check
-cmd = "sh -c 'apache2-foreground & \
-  while ! wget -qO /dev/null http://localhost/health.php; do sleep 1; done; \
-  tail -f /var/log/apache2/access.log /var/log/apache2/error.log'"
+cmd = "php -S 0.0.0.0:${PORT:-8000} -t public"
+
+[phases.setup.required_files]
+"public/index.php" = "index.php"
+
+[phases.setup.cmds]
+# Create the public directory if it doesn't exist
+"mkdir -p public"
+"ln -sf ../.htaccess public/"
+"ln -sf ../index.php public/"
+"ln -sf ../dashboard.php public/"
+"ln -sf ../admin public/"
+"ln -sf ../api public/"
+"ln -sf ../assets public/"
+"ln -sf ../config public/"
+"ln -sf ../css public/"
+"ln -sf ../img public/"
+"ln -sf ../includes public/"
+"ln -sf ../js public/"
+"ln -sf ../uploads public/"
+
+# Create the uploads directory structure
+"mkdir -p /app/uploads/items /app/uploads/deliveries /app/uploads/pickups /app/uploads/qr_codes /app/uploads/gcash_screenshots"
+"chmod -R 777 /app/uploads"
+"ln -sf /app/uploads uploads"
