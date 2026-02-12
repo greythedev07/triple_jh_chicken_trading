@@ -2,11 +2,18 @@
 session_start();
 require_once('../config.php');
 
+// Enable error reporting for debugging
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
 if (!isset($_SESSION['admin_id'])) {
     http_response_code(401);
+    header('Content-Type: application/json');
     echo json_encode(['error' => 'Unauthorized']);
     exit;
 }
+
+header('Content-Type: application/json');
 
 try {
     // Get products from both completed and pending deliveries, even without reviews
@@ -62,8 +69,49 @@ try {
     $stmt->execute();
     $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+    // Debug output
+    if (empty($products)) {
+        // Try a simpler query to see if we can get any products at all
+        $testStmt = $db->query("SELECT id, name FROM products LIMIT 5");
+        $testProducts = $testStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        if (empty($testProducts)) {
+            error_log("No products found in the database");
+            echo json_encode([
+                'error' => 'No products found',
+                'debug' => [
+                    'test_products_query' => $testProducts,
+                    'db_name' => $db->query('SELECT DATABASE() as dbname')->fetch()['dbname']
+                ]
+            ]);
+            exit;
+        }
+
+        // If we get here, there are products but none with sales
+        echo json_encode([
+            'message' => 'No products with sales found',
+            'debug' => [
+                'available_products' => $testProducts,
+                'db_name' => $db->query('SELECT DATABASE() as dbname')->fetch()['dbname']
+            ]
+        ]);
+        exit;
+    }
+
     echo json_encode($products);
+} catch (PDOException $e) {
+    http_response_code(500);
+    error_log("Database error in get_top_products.php: " . $e->getMessage());
+    echo json_encode([
+        'error' => 'Database error',
+        'message' => $e->getMessage(),
+        'trace' => $e->getTraceAsString()
+    ]);
 } catch (Exception $e) {
     http_response_code(500);
-    echo json_encode(['error' => 'Database error']);
+    error_log("Error in get_top_products.php: " . $e->getMessage());
+    echo json_encode([
+        'error' => 'An error occurred',
+        'message' => $e->getMessage()
+    ]);
 }
