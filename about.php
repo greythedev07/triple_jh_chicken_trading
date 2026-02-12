@@ -140,10 +140,11 @@ try {
             font-size: 1.25rem;
             font-weight: 600;
             margin-bottom: 1rem;
+            color: var(--deep-chestnut);
         }
 
         .mission-card p {
-            color: var(--gray);
+            color: var(--accent-dark);
             margin-bottom: 0;
         }
 
