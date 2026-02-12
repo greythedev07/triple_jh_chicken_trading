@@ -761,7 +761,7 @@ foreach ($cartItems as $item) {
 
                                 <!-- QR Code Display -->
                                 <div class="text-center mb-3">
-                                    <img src="../uploads/qr_codes/gcash_qr_sample.png" alt="GCash QR Code"
+                                    <img src="../img/gcash_qr_sample.png" alt="GCash QR Code"
                                         class="img-fluid"
                                         style="max-width: 200px; border: 1px solid #ddd; border-radius: 8px;">
                                     <p class="small text-muted mt-2">Scan this QR code with your GCash app</p>
