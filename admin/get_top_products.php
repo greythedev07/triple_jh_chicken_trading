@@ -1,10 +1,10 @@
 <?php
-session_start();
-require_once('../config.php');
-
 // Enable error reporting for debugging
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
+
+session_start();
+require_once('../config.php');
 
 if (!isset($_SESSION['admin_id'])) {
     http_response_code(401);
@@ -15,9 +15,26 @@ if (!isset($_SESSION['admin_id'])) {
 
 header('Content-Type: application/json');
 
+// Debug: Log session and database connection info
+error_log('Admin ID in session: ' . ($_SESSION['admin_id'] ?? 'not set'));
+
 try {
+    // Test database connection first
+    $db->query('SELECT 1');
     // Get products from both completed and pending deliveries, even without reviews
-    $stmt = $db->prepare("
+    // First, let's try a simple query to check if the tables exist
+    $tables = $db->query("SHOW TABLES LIKE 'products'")->fetchAll();
+    if (empty($tables)) {
+        throw new Exception('Products table does not exist');
+    }
+
+    $tables = $db->query("SHOW TABLES LIKE 'parent_products'")->fetchAll();
+    if (empty($tables)) {
+        throw new Exception('parent_products table does not exist');
+    }
+
+    // Now try the main query
+    $query = "
         SELECT
             COALESCE(pp.id, p.id) as display_id,
             COALESCE(pp.name, p.name) as name,
@@ -65,9 +82,17 @@ try {
         ORDER BY
             total_sold DESC
         LIMIT 3
-    ");
+    ";
+    error_log('Executing query: ' . $query);
+    $stmt = $db->prepare($query);
     $stmt->execute();
     $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Log the results for debugging
+    error_log('Query returned ' . count($products) . ' products');
+    if (!empty($products)) {
+        error_log('First product: ' . print_r($products[0], true));
+    }
 
     // Debug output
     if (empty($products)) {
