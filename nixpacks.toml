@@ -6,3 +6,9 @@ cmds = [
 
 [phases.install]
 cmds = ["composer install --no-dev"]
+
+[start]
+# Use a script that starts Apache in the background and runs a health check
+cmd = "sh -c 'apache2-foreground & \
+  while ! wget -qO /dev/null http://localhost/health.php; do sleep 1; done; \
+  tail -f /var/log/apache2/access.log /var/log/apache2/error.log'"

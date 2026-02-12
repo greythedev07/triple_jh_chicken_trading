@@ -3,4 +3,6 @@ builder = "NIXPACKS"
 
 [deploy]
 healthcheckPath = "/health.php"
-healthcheckTimeout = 100
+healthcheckTimeout = 300
+healthcheckInterval = 60s
+startTimeout = 300
