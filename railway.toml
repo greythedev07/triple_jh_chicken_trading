@@ -2,6 +2,5 @@
 builder = "NIXPACKS"
 
 [deploy]
-startCommand = "mkdir -p /app/uploads/items /app/uploads/deliveries /app/uploads/pickups /app/uploads/qr_codes && chmod -R 777 /app/uploads"
 healthcheckPath = "/health.php"
 healthcheckTimeout = 100
