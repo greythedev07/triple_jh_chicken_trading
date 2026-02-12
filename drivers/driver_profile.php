@@ -84,20 +84,29 @@ try {
                 throw new Exception('Invalid file type. Please upload a JPG, JPEG, PNG, or GIF image.');
             }
 
-            $upload_dir = '../img/profile_pic/';
+            // Use absolute path for upload directory
+            $upload_dir = __DIR__ . '/../img/profile_pic/';
             if (!file_exists($upload_dir)) {
-                mkdir($upload_dir, 0777, true);
+                if (!@mkdir($upload_dir, 0777, true) && !is_dir($upload_dir)) {
+                    throw new Exception('Failed to create upload directory. Please check permissions.');
+                }
+                @chmod($upload_dir, 0777);
             }
 
             $filename = 'driver_' . $driver_id . '_' . time() . '.' . $file_extension;
             $target_path = $upload_dir . $filename;
 
             if (!move_uploaded_file($file['tmp_name'], $target_path)) {
-                throw new Exception('Failed to upload profile picture. Please try again.');
+                $error = error_get_last();
+                throw new Exception('Failed to upload profile picture: ' . ($error['message'] ?? 'Unknown error'));
             }
 
+            // Set proper permissions on the uploaded file
+            @chmod($target_path, 0644);
+
             // Delete old profile picture if it's not the default one
-            if ($profile_picture && $profile_picture !== 'img/profile_pic/default.png' && file_exists('../' . $profile_picture)) {
+            $old_file_path = __DIR__ . '/../' . ltrim($profile_picture, '/');
+            if ($profile_picture && $profile_picture !== 'img/profile_pic/default.png' && file_exists($old_file_path)) {
                 @unlink('../' . $profile_picture);
             }
 
