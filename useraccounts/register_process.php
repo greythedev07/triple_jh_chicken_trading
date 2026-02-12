@@ -22,6 +22,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
+    // Validate password strength
+    if (strlen($password) < 8 || strlen($password) > 16) {
+        echo json_encode(['status' => 'error', 'message' => 'Password must be between 8 and 16 characters long.']);
+        exit;
+    }
+
+    if (!preg_match('/[A-Za-z]/', $password) || !preg_match('/\d/', $password) || !preg_match('/[@$!%*#?&]/', $password)) {
+        echo json_encode(['status' => 'error', 'message' => 'Password must include at least one letter, one number, and one special character (@$!%*#?&).']);
+        exit;
+    }
+
     try {
         // Step 1: Check if email already exists
         $checkSql = "SELECT COUNT(*) FROM users WHERE email = ?";
@@ -35,8 +46,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Step 2: Hash password and insert new user
-        $sql = "INSERT INTO users 
-                (firstname, lastname, email, phonenumber, password, address, barangay, city, zipcode, landmark) 
+        $sql = "INSERT INTO users
+                (firstname, lastname, email, phonenumber, password, address, barangay, city, zipcode, landmark)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         $stmtinsert = $db->prepare($sql);

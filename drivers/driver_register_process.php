@@ -1,17 +1,39 @@
 <?php
 require_once('../config.php');
 
+// Set content type to JSON
+header('Content-Type: application/json');
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = trim($_POST['name'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $password = trim($_POST['password'] ?? '');
+    $confirm_password = trim($_POST['confirm_password'] ?? '');
     $phone = trim($_POST['phone'] ?? '');
     $license_no = trim($_POST['license_no'] ?? '');
     $vehicle_type = trim($_POST['vehicle_type'] ?? '');
     $address = trim($_POST['address'] ?? '');
 
-    if (empty($name) || empty($email) || empty($password) || empty($phone) || empty($license_no) || empty($vehicle_type) || empty($address)) {
-        echo "Please fill in all fields.";
+    // Validate required fields
+    if (empty($name) || empty($email) || empty($password) || empty($confirm_password) || empty($phone) || empty($license_no) || empty($vehicle_type) || empty($address)) {
+        echo json_encode(['status' => 'error', 'message' => 'Please fill in all fields.']);
+        exit;
+    }
+
+    // Validate password strength
+    if (strlen($password) < 8 || strlen($password) > 16) {
+        echo json_encode(['status' => 'error', 'message' => 'Password must be between 8 and 16 characters long.']);
+        exit;
+    }
+
+    if (!preg_match('/[A-Za-z]/', $password) || !preg_match('/\d/', $password) || !preg_match('/[@$!%*#?&]/', $password)) {
+        echo json_encode(['status' => 'error', 'message' => 'Password must include at least one letter, one number, and one special character (@$!%*#?&).']);
+        exit;
+    }
+
+    // Check if passwords match
+    if ($password !== $confirm_password) {
+        echo json_encode(['status' => 'error', 'message' => 'Passwords do not match.']);
         exit;
     }
 
@@ -20,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $db->prepare("SELECT id FROM drivers WHERE email = ?");
         $stmt->execute([$email]);
         if ($stmt->fetch()) {
-            echo "Email already registered.";
+            echo json_encode(['status' => 'error', 'message' => 'Email already registered.']);
             exit;
         }
 
@@ -34,10 +56,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ");
         $stmt->execute([$driver_code, $name, $email, $phone, $hashedPassword, $vehicle_type, $license_no, $address]);
 
-        echo "Registration successful";
+        echo json_encode(['status' => 'success', 'message' => 'Registration successful']);
     } catch (PDOException $e) {
-        echo "Database error: " . htmlspecialchars($e->getMessage());
+        error_log("Database error: " . $e->getMessage());
+        echo json_encode(['status' => 'error', 'message' => 'An error occurred during registration. Please try again.']);
     }
 } else {
-    echo "Invalid request.";
+    echo json_encode(['status' => 'error', 'message' => 'Invalid request method.']);
 }

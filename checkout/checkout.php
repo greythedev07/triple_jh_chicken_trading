@@ -18,9 +18,28 @@ try {
 $stmt = $db->prepare("SELECT firstname, lastname, email, phonenumber, address, barangay, city, zipcode, landmark FROM users WHERE id = ?");
 $stmt->execute([$user_id]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
-$cartStmt = $db->prepare(" SELECT p.name, p.price, c.quantity FROM cart c JOIN products p ON c.product_id = p.id WHERE c.user_id = ? ");
+
+// Get cart items with parent product information
+$cartStmt = $db->prepare("
+    SELECT
+        c.id as cart_id,
+        c.quantity,
+        p.id as product_id,
+        p.name as variant_name,
+        p.price,
+        p.stock,
+        pp.id as parent_id,
+        pp.name as parent_name,
+        pp.image as parent_image
+    FROM cart c
+    JOIN products p ON c.product_id = p.id
+    LEFT JOIN parent_products pp ON p.parent_id = pp.id
+    WHERE c.user_id = ?
+");
 $cartStmt->execute([$user_id]);
 $cartItems = $cartStmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Calculate total
 $total = 0;
 foreach ($cartItems as $item) {
     $total += $item['price'] * $item['quantity'];
@@ -36,13 +55,25 @@ foreach ($cartItems as $item) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="../css/footer_header.css">
     <style>
+        :root {
+            --sunset-gradient-start: #ffb347;
+            --sunset-gradient-end: #ff6b26;
+            --rich-amber: #f18f01;
+            --buttered-sand: #ffe4c1;
+            --deep-chestnut: #7a3a12;
+            --spark-gold: #f9a219;
+            --cream-panel: #fff5e2;
+            --accent-light: #fff7e3;
+            --accent-dark: #6d3209;
+        }
+
         html,
         body {
             height: 100%;
             margin: 0;
             font-family: "Inter", "Segoe UI", sans-serif;
-            background-color: #f8f9fb;
-            color: #222;
+            background: var(--buttered-sand);
+            color: var(--accent-dark);
             display: flex;
             flex-direction: column;
         }
@@ -67,8 +98,8 @@ foreach ($cartItems as $item) {
             position: absolute;
             top: -4px;
             right: -4px;
-            background: #ff3b30;
-            color: #fff;
+            background: var(--rich-amber);
+            color: var(--accent-light);
             font-size: 0.7rem;
             padding: 2px 6px;
             border-radius: 999px;
@@ -85,27 +116,37 @@ foreach ($cartItems as $item) {
 
         .card {
             border: none;
-            border-radius: 12px;
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+            border-radius: 14px;
+            background: var(--cream-panel);
+            box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12);
         }
 
         .form-control,
         .form-select {
             border-radius: 8px;
+            border-color: rgba(109, 50, 9, 0.2);
+        }
+
+        .form-control:focus,
+        .form-select:focus {
+            border-color: var(--rich-amber);
+            box-shadow: 0 0 0 0.15rem rgba(241, 143, 1, 0.35);
         }
 
         .checkout-btn {
-            background: #000;
-            color: #fff;
+            background: linear-gradient(180deg, var(--sunset-gradient-start), var(--sunset-gradient-end));
+            color: var(--accent-dark);
             border: none;
             width: 100%;
-            padding: 0.75rem;
-            border-radius: 6px;
+            padding: 0.8rem;
+            border-radius: 999px;
             font-weight: 600;
+            box-shadow: 0 10px 24px rgba(241, 143, 1, 0.35);
         }
 
         .checkout-btn:hover {
-            background: #111;
+            box-shadow: 0 14px 32px rgba(241, 143, 1, 0.45);
+            transform: translateY(-1px);
         }
     </style>
 </head>
@@ -152,12 +193,12 @@ foreach ($cartItems as $item) {
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="../useraccounts/settings.php">
-                            <i class="fas fa-user"></i> Account
+                            <i class="fas fa-user"></i>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="../logout.php">
-                            <i class="fas fa-sign-out-alt"></i> Logout
+                            <i class="fas fa-sign-out-alt"></i>
                         </a>
                     </li>
                 </ul>
@@ -166,7 +207,7 @@ foreach ($cartItems as $item) {
     </nav>
     <div class="checkout-container">
         <h2 class="fw-bold mb-4">Checkout</h2>
-        <form method="POST" action="checkout_process.php">
+        <form method="POST" action="checkout_process.php" enctype="multipart/form-data">
             <div class="row g-4"> <!-- Delivery Info -->
                 <div class="col-lg-7">
                     <div class="card p-4">
@@ -714,8 +755,8 @@ foreach ($cartItems as $item) {
                                     <li>Enter the exact amount: <strong>₱<span
                                                 id="gcash-amount"><?= number_format($total, 2) ?></span></strong></li>
                                     <li>Complete the payment in your GCash app</li>
-                                    <li>Copy the reference number from your GCash transaction</li>
-                                    <li>Paste the reference number in the field below</li>
+                                    <li>Take a screenshot of your payment confirmation/receipt</li>
+                                    <li>Upload the screenshot below for verification</li>
                                 </ol>
 
                                 <!-- QR Code Display -->
@@ -726,14 +767,26 @@ foreach ($cartItems as $item) {
                                     <p class="small text-muted mt-2">Scan this QR code with your GCash app</p>
                                 </div>
 
-                                <!-- Reference Number Input -->
+                                <!-- Payment Screenshot Upload -->
                                 <div class="mb-3">
-                                    <label for="gcash_reference" class="form-label fw-bold">GCash Reference Number <span
+                                    <label for="gcash_screenshot" class="form-label fw-bold">Payment Screenshot <span
                                             class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" id="gcash_reference" name="gcash_reference"
-                                        placeholder="Enter your GCash reference number">
-                                    <div class="form-text">You can find this in your GCash app after completing the
-                                        payment</div>
+                                    <input type="file" class="form-control" id="gcash_screenshot" name="gcash_screenshot"
+                                        accept="image/*" required>
+                                    <div class="form-text">Upload a clear screenshot of your GCash payment confirmation
+                                        (JPG, PNG, or WebP format, max 5MB)</div>
+
+                                    <!-- Image Preview -->
+                                    <div id="screenshot-preview" class="mt-3" style="display: none;">
+                                        <label class="form-label">Preview:</label>
+                                        <img id="preview-image" src="" alt="Payment screenshot preview"
+                                            class="img-fluid" style="max-width: 300px; border: 1px solid #ddd; border-radius: 8px;">
+                                        <div class="mt-2">
+                                            <button type="button" class="btn btn-sm btn-outline-danger" id="remove-screenshot">
+                                                <i class="fas fa-trash"></i> Remove Image
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -743,8 +796,14 @@ foreach ($cartItems as $item) {
                     <div class="card p-4">
                         <h5 class="fw-bold mb-3">Order Summary</h5> <?php foreach ($cartItems as $item): ?>
                             <div class="d-flex justify-content-between small mb-2">
-                                <span><?= htmlspecialchars($item['name']) ?> × <?= (int) $item['quantity'] ?></span>
-                                <span>₱<?= number_format($item['price'] * $item['quantity'], 2) ?></span>
+                                <div>
+                                    <div class="fw-medium"><?= htmlspecialchars($item['parent_name']) ?></div>
+                                    <?php if (!empty($item['variant_name']) && $item['variant_name'] !== $item['parent_name']): ?>
+                                        <div class="text-muted small"><?= htmlspecialchars($item['variant_name']) ?></div>
+                                    <?php endif; ?>
+                                    <div class="text-muted small">x<?= $item['quantity'] ?></div>
+                                </div>
+                                <span class="text-end">₱<?= number_format($item['price'] * $item['quantity'], 2) ?></span>
                             </div>
                         <?php endforeach; ?>
                         <hr>
@@ -777,8 +836,11 @@ foreach ($cartItems as $item) {
             const codRadio = document.getElementById('cod');
             const gcashRadio = document.getElementById('gcash');
             const gcashSection = document.getElementById('gcash-payment-section');
-            const gcashReferenceInput = document.getElementById('gcash_reference');
+            const gcashScreenshotInput = document.getElementById('gcash_screenshot');
             const gcashAmountSpan = document.getElementById('gcash-amount');
+            const screenshotPreview = document.getElementById('screenshot-preview');
+            const previewImage = document.getElementById('preview-image');
+            const removeScreenshotBtn = document.getElementById('remove-screenshot');
             const totalAmount = <?= $total ?>;
 
             // Update GCash amount display
@@ -787,33 +849,83 @@ foreach ($cartItems as $item) {
             function togglePaymentMethod() {
                 if (gcashRadio.checked) {
                     gcashSection.style.display = 'block';
-                    gcashReferenceInput.required = true;
+                    gcashScreenshotInput.required = true;
                 } else {
                     gcashSection.style.display = 'none';
-                    gcashReferenceInput.required = false;
-                    gcashReferenceInput.value = '';
+                    gcashScreenshotInput.required = false;
+                    gcashScreenshotInput.value = '';
+                    screenshotPreview.style.display = 'none';
                 }
             }
+
+            // Initialize state on first load so COD can submit without GCash screenshot
+            togglePaymentMethod();
 
             codRadio.addEventListener('change', togglePaymentMethod);
             gcashRadio.addEventListener('change', togglePaymentMethod);
 
+            // Handle screenshot preview
+            gcashScreenshotInput.addEventListener('change', function (e) {
+                const file = e.target.files[0];
+                if (file) {
+                    // Validate file size (5MB max)
+                    if (file.size > 5 * 1024 * 1024) {
+                        alert('File size must be less than 5MB.');
+                        gcashScreenshotInput.value = '';
+                        screenshotPreview.style.display = 'none';
+                        return;
+                    }
+
+                    // Validate file type
+                    if (!file.type.startsWith('image/')) {
+                        alert('Please upload an image file.');
+                        gcashScreenshotInput.value = '';
+                        screenshotPreview.style.display = 'none';
+                        return;
+                    }
+
+                    // Show preview
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                        previewImage.src = e.target.result;
+                        screenshotPreview.style.display = 'block';
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    screenshotPreview.style.display = 'none';
+                }
+            });
+
+            // Handle remove screenshot
+            removeScreenshotBtn.addEventListener('click', function () {
+                gcashScreenshotInput.value = '';
+                screenshotPreview.style.display = 'none';
+            });
+
             // Form validation for GCash
             document.querySelector('form').addEventListener('submit', function (e) {
                 if (gcashRadio.checked) {
-                    const reference = gcashReferenceInput.value.trim();
-                    if (!reference) {
+                    const screenshot = gcashScreenshotInput.files[0];
+                    if (!screenshot) {
                         e.preventDefault();
-                        alert('Please enter your GCash reference number.');
-                        gcashReferenceInput.focus();
+                        alert('Please upload a payment screenshot.');
+                        gcashScreenshotInput.focus();
                         return false;
                     }
 
-                    // Basic validation for reference number format
-                    if (reference.length < 8) {
+                    // Validate file size again
+                    if (screenshot.size > 5 * 1024 * 1024) {
                         e.preventDefault();
-                        alert('Please enter a valid GCash reference number.');
-                        gcashReferenceInput.focus();
+                        alert('File size must be less than 5MB.');
+                        gcashScreenshotInput.focus();
+                        return false;
+                    }
+
+                    // Validate file type again
+                    if (!screenshot.type.startsWith('image/')) {
+                        e.preventDefault();
+                        alert('Please upload an image file.');
+                        gcashScreenshotInput.focus();
                         return false;
                     }
                 }

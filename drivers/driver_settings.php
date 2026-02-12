@@ -22,23 +22,57 @@ $driver = $stmt->fetch(PDO::FETCH_ASSOC);
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
+        :root {
+            --sunset-gradient-start: #ffb347;
+            --sunset-gradient-end: #ff6b26;
+            --rich-amber: #f18f01;
+            --buttered-sand: #ffe4c1;
+            --deep-chestnut: #7a3a12;
+            --spark-gold: #f9a219;
+            --cream-panel: #fff5e2;
+            --accent-light: #fff7e3;
+            --accent-dark: #6d3209;
+        }
+
         body {
-            background-color: #f8f9fb;
+            background: radial-gradient(circle at top left, #fff7e3 0, #ffe4c1 40%, #fbd0a1 70%, #ffb347 100%);
             font-family: "Inter", "Segoe UI", sans-serif;
+            color: var(--accent-dark);
         }
 
         .card {
+            border-radius: 18px;
+            border: 1px solid rgba(241, 143, 1, 0.3);
+            background: var(--cream-panel);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.16);
+        }
+
+        .card h3 {
+            color: var(--accent-dark);
+        }
+
+        .form-control {
             border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            border-color: rgba(109, 50, 9, 0.25);
+        }
+
+        .form-control:focus {
+            border-color: var(--rich-amber);
+            box-shadow: 0 0 0 0.15rem rgba(241, 143, 1, 0.35);
         }
 
         .btn-dark {
-            background-color: #111;
+            background: linear-gradient(180deg, var(--sunset-gradient-start), var(--sunset-gradient-end));
             border: none;
+            border-radius: 999px;
+            font-weight: 600;
+            color: var(--accent-dark);
+            box-shadow: 0 12px 30px rgba(241, 143, 1, 0.45);
         }
 
         .btn-dark:hover {
-            background-color: #000;
+            transform: translateY(-1px);
+            box-shadow: 0 16px 40px rgba(241, 143, 1, 0.55);
         }
 
         input[readonly] {

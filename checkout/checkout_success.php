@@ -24,22 +24,25 @@ try {
     <title>Order Success | Triple JH Chicken Trading</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
+        :root {
+            --sunset-gradient-start: #ffb347;
+            --sunset-gradient-end: #ff6b26;
+            --rich-amber: #f18f01;
+            --buttered-sand: #ffe4c1;
+            --deep-chestnut: #7a3a12;
+            --spark-gold: #f9a219;
+            --cream-panel: #fff5e2;
+            --accent-light: #fff7e3;
+            --accent-dark: #6d3209;
+        }
+
         body {
-            background-color: #f4f5f7;
+            background: var(--buttered-sand);
             font-family: "Inter", sans-serif;
-            color: #111;
+            color: var(--accent-dark);
             display: flex;
             flex-direction: column;
             min-height: 100vh;
-        }
-
-        .navbar {
-            background-color: #000;
-        }
-
-        .navbar .nav-link,
-        .navbar-brand {
-            color: #fff !important;
         }
 
         main {
@@ -51,18 +54,18 @@ try {
         }
 
         .success-card {
-            background: #fff;
-            border-radius: 12px;
-            padding: 2.5rem;
+            background: var(--cream-panel);
+            border-radius: 18px;
+            padding: 2.75rem 2.5rem;
             text-align: center;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            max-width: 550px;
+            box-shadow: 0 22px 60px rgba(0, 0, 0, 0.18);
+            max-width: 560px;
             width: 100%;
         }
 
         .success-icon {
-            font-size: 4rem;
-            color: #28a745;
+            font-size: 3.5rem;
+            color: var(--rich-amber);
         }
 
         h1 {
@@ -75,9 +78,10 @@ try {
         .order-summary {
             text-align: left;
             margin-top: 1.5rem;
-            background: #f9fafb;
-            border-radius: 10px;
-            padding: 1.2rem;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 12px;
+            padding: 1.4rem 1.5rem;
+            box-shadow: 0 10px 28px rgba(0, 0, 0, 0.08);
         }
 
         .order-summary p {
@@ -85,42 +89,24 @@ try {
         }
 
         .btn-dark {
-            background: #000;
+            background: linear-gradient(180deg, var(--sunset-gradient-start), var(--sunset-gradient-end));
             border: none;
-            padding: 0.75rem 1.5rem;
+            padding: 0.8rem 1.8rem;
             font-weight: 600;
-            margin-top: 1rem;
-            border-radius: 6px;
+            margin-top: 1.25rem;
+            border-radius: 999px;
+            color: var(--accent-dark);
+            box-shadow: 0 14px 32px rgba(241, 143, 1, 0.4);
         }
 
         .btn-dark:hover {
-            background: #111;
-        }
-
-        footer {
-            background: #000;
-            color: #fff;
-            text-align: center;
-            padding: 1.5rem 0;
-            margin-top: auto;
-            flex-shrink: 0;
+            transform: translateY(-1px);
+            box-shadow: 0 18px 40px rgba(241, 143, 1, 0.5);
         }
     </style>
 </head>
 
 <body>
-    <nav class="navbar navbar-expand-lg">
-        <div class="container"> <a class="navbar-brand fw-bold" href="../dashboard.php">Triple JH</a>
-            <div class="collapse navbar-collapse">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item"><a class="nav-link" href="../dashboard.php">Shop</a></li>
-                    <li class="nav-item"><a class="nav-link active" href="../carts/cart.php">Cart</a></li>
-                    <li class="nav-item"><a class="nav-link active" href="../orders/orders.php">Orders</a></li>
-                    <li class="nav-item"><a class="nav-link" href="../logout.php">Logout</a></li>
-                </ul>
-            </div>
-        </div>
-    </nav>
     <main>
         <div class="success-card">
             <div class="success-icon">✅</div>
@@ -172,11 +158,6 @@ try {
                 </div> <?php else: ?> <p class="text-muted mt-4">No recent order found.</p> <?php endif; ?> <a href="../dashboard.php" class="btn btn-dark w-100 mt-3">Return to Dashboard</a>
         </div>
     </main>
-    <footer>
-        <div class="container">
-            <small>© <?= date('Y') ?> Triple JH Chicken Trading — All rights reserved.</small>
-        </div>
-    </footer>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 

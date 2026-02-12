@@ -59,8 +59,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
 
                     $stmt = $db->prepare("
-                        UPDATE users SET 
-                        firstname = ?, lastname = ?, email = ?, phonenumber = ?, 
+                        UPDATE users SET
+                        firstname = ?, lastname = ?, email = ?, phonenumber = ?,
                         address = ?, barangay = ?, city = ?, zipcode = ?, landmark = ?
                         WHERE id = ?
                     ");
@@ -183,13 +183,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="../css/footer_header.css">
     <style>
+        :root {
+            --sunset-gradient-start: #ffb347;
+            --sunset-gradient-end: #ff6b26;
+            --rich-amber: #f18f01;
+            --buttered-sand: #ffe4c1;
+            --deep-chestnut: #7a3a12;
+            --spark-gold: #f9a219;
+            --cream-panel: #fff5e2;
+            --accent-light: #fff7e3;
+            --accent-dark: #6d3209;
+        }
+
         html,
         body {
             height: 100%;
             margin: 0;
             font-family: "Inter", "Segoe UI", sans-serif;
-            background-color: #f8f9fb;
-            color: #222;
+            background: var(--buttered-sand);
+            color: var(--accent-dark);
             display: flex;
             flex-direction: column;
         }
@@ -214,8 +226,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             position: absolute;
             top: -4px;
             right: -4px;
-            background: #ff3b30;
-            color: #fff;
+            background: var(--rich-amber);
+            color: var(--accent-light);
             font-size: 0.7rem;
             padding: 2px 6px;
             border-radius: 999px;
@@ -231,16 +243,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         .card {
-            border: none;
-            border-radius: 12px;
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+            border-radius: 18px;
+            border: 1px solid rgba(241, 143, 1, 0.35);
+            background: var(--cream-panel);
+            box-shadow: 0 18px 45px rgba(0, 0, 0, 0.12);
             margin-bottom: 2rem;
         }
 
         .card-header {
-            background: #fff;
-            border-bottom: 1px solid #e9ecef;
-            border-radius: 12px 12px 0 0 !important;
+            background: rgba(255, 247, 227, 0.95);
+            border-bottom: 1px solid rgba(241, 143, 1, 0.35);
+            border-radius: 18px 18px 0 0 !important;
             padding: 1.5rem;
         }
 
@@ -249,23 +262,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         .btn-primary {
-            background: #000;
+            background: linear-gradient(180deg, var(--sunset-gradient-start), var(--sunset-gradient-end));
             border: none;
             padding: 0.75rem 2rem;
-            border-radius: 8px;
-            font-weight: 500;
+            border-radius: 999px;
+            font-weight: 600;
+            color: var(--accent-dark);
+            box-shadow: 0 10px 26px rgba(241, 143, 1, 0.45);
         }
 
         .btn-primary:hover {
-            background: #333;
+            transform: translateY(-1px);
+            box-shadow: 0 14px 34px rgba(241, 143, 1, 0.55);
         }
 
         .btn-danger {
             background: #dc3545;
             border: none;
             padding: 0.75rem 2rem;
-            border-radius: 8px;
-            font-weight: 500;
+            border-radius: 999px;
+            font-weight: 600;
         }
 
         .btn-danger:hover {
@@ -274,22 +290,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         .form-label {
             font-weight: 500;
-            color: #333;
+            color: var(--accent-dark);
             margin-bottom: 0.5rem;
         }
 
         .form-control,
         .form-select {
-            border: 1px solid #ddd;
-            border-radius: 8px;
+            border: 1px solid rgba(109, 50, 9, 0.25);
+            border-radius: 10px;
             padding: 0.75rem;
             font-size: 0.95rem;
+            background-color: #fff;
         }
 
         .form-control:focus,
         .form-select:focus {
-            border-color: #000;
-            box-shadow: 0 0 0 0.2rem rgba(0, 0, 0, 0.1);
+            border-color: var(--rich-amber);
+            box-shadow: 0 0 0 0.15rem rgba(241, 143, 1, 0.35);
         }
 
         .alert {
@@ -298,15 +315,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         .alert-warning {
-            background-color: #fff3cd;
-            border-color: #ffecb5;
-            color: #664d03;
+            background-color: #fff7e3;
+            border-color: #ffe4c1;
+            color: #7a3a12;
         }
 
         .btn-outline-danger {
             border-color: #dc3545;
             color: #dc3545;
             transition: all 0.2s ease;
+            border-radius: 999px;
         }
 
         .btn-outline-danger:hover {
@@ -320,22 +338,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             cursor: not-allowed;
         }
 
-        .form-check.border {
-            border-color: #e9ecef !important;
-            transition: border-color 0.2s ease;
-        }
-
         .form-check.border:hover {
             border-color: #dc3545 !important;
-        }
-
-        footer {
-            background: #000;
-            color: #fff;
-            padding: 1.5rem 0;
-            text-align: center;
-            margin-top: auto;
-            flex-shrink: 0;
         }
     </style>
 </head>
@@ -360,18 +364,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="../orders/orders.php">
-                            <i class="fas fa-shopping-bag"></i> Orders
-                        </a>
-                    </li>
-                    <li class="nav-item">
                         <a class="nav-link" href="../about.php">
                             <i class="fas fa-info-circle"></i> About
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="../orders/orders.php">
+                            <i class="fas fa-shopping-bag"></i> Orders
+                        </a>
+                    </li>
                     <li class="nav-item me-3">
                         <a class="nav-link position-relative" href="../carts/cart.php">
-                            <i class="fas fa-shopping-cart"></i>
+                            <i class="fas fa-shopping-cart"></i> Cart
                             <?php if ($cartCount > 0): ?>
                                 <span
                                     class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
@@ -382,12 +386,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="../useraccounts/settings.php">
-                            <i class="fas fa-user"></i> Account
+                            <i class="fas fa-user"></i>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="../logout.php">
-                            <i class="fas fa-sign-out-alt"></i> Logout
+                            <i class="fas fa-sign-out-alt"></i>
                         </a>
                     </li>
                 </ul>

@@ -1,104 +1,311 @@
 <?php
-// get_product_details.php - API endpoint to fetch product details
-
-// Enable error reporting at the very top
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-
 // Start session and include config
 session_start();
-require_once(__DIR__ . '/config.php');
+require_once __DIR__ . '/config.php';
 
 // Set JSON content type
 header('Content-Type: application/json');
 
-// Function to send JSON response
-function sendJsonResponse($data, $statusCode = 200)
-{
-    http_response_code($statusCode);
-    echo json_encode($data);
-    exit;
-}
-
 // Check if user is logged in
 if (!isset($_SESSION['user_id'])) {
-    sendJsonResponse([
+    die(json_encode([
         'status' => 'error',
         'message' => 'Please log in to view product details'
-    ], 401);
+    ]));
 }
 
-// Get product ID from request
-$product_id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+// Get product ID or parent ID from request
+$productId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$parentId = isset($_GET['parent_id']) ? (int)$_GET['parent_id'] : 0;
 
-if ($product_id <= 0) {
-    sendJsonResponse([
+if ($productId <= 0 && $parentId <= 0) {
+    die(json_encode([
         'status' => 'error',
-        'message' => 'Invalid product ID'
-    ], 400);
+        'message' => 'Invalid product or parent ID'
+    ]));
 }
 
 try {
-    // Verify database connection
-    if (!isset($db) || !($db instanceof PDO)) {
-        throw new Exception('Database connection not properly initialized');
+    // Direct database connection
+    $pdo = new PDO(
+        'mysql:host=localhost;dbname=commissioned_app_database;charset=utf8mb4',
+        'root',
+        '',
+        [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES => false,
+        ]
+    );
+
+    // Prepare the query based on whether we have a product ID or parent ID
+    if ($productId > 0) {
+        // Get specific variant by ID
+        $sql = "
+            SELECT
+                p.*,
+                pp.name,
+                pp.description,
+                pp.image as parent_image,
+                p.weight,
+                (SELECT MIN(p2.price) FROM products p2 WHERE p2.parent_id = p.parent_id) as min_price,
+                (SELECT MAX(p2.price) FROM products p2 WHERE p2.parent_id = p.parent_id) as max_price,
+                (SELECT COALESCE(SUM(p2.stock), 0) FROM products p2 WHERE p2.parent_id = p.parent_id) as total_stock,
+                pp.name as parent_name,
+                pp.description as parent_description
+            FROM products p
+            LEFT JOIN parent_products pp ON p.parent_id = pp.id
+            WHERE p.id = ? AND p.is_active = 1
+            LIMIT 1
+        ";
+        $params = [$productId];
+    } else {
+        // Get first active variant of parent product
+        $sql = "
+            SELECT
+                p.*,
+                pp.name,
+                pp.description,
+                pp.image as parent_image,
+                p.weight,
+                (SELECT MIN(p2.price) FROM products p2 WHERE p2.parent_id = ?) as min_price,
+                (SELECT MAX(p2.price) FROM products p2 WHERE p2.parent_id = ?) as max_price,
+                (SELECT COALESCE(SUM(p2.stock), 0) FROM products p2 WHERE p2.parent_id = ?) as total_stock,
+                pp.name as parent_name,
+                pp.description as parent_description
+            FROM products p
+            LEFT JOIN parent_products pp ON p.parent_id = pp.id
+            WHERE p.parent_id = ? AND p.is_active = 1
+            ORDER BY p.price ASC
+            LIMIT 1
+        ";
+        $params = [$parentId, $parentId, $parentId, $parentId];
     }
 
-    // Get product details (removed category join)
-    $stmt = $db->prepare("
-        SELECT * 
-        FROM products 
-        WHERE id = ?
-    ");
-
-    if (!$stmt->execute([$product_id])) {
-        throw new Exception('Failed to execute product query');
-    }
-
-    $product = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $product = $stmt->fetch();
 
     if (!$product) {
-        sendJsonResponse([
-            'status' => 'error',
-            'message' => 'Product not found'
-        ], 404);
+        throw new Exception('Product not found');
     }
 
-    // Get all products except the current one (removed category filter)
-    $relatedStmt = $db->prepare("
-        SELECT id, name, price, image 
-        FROM products 
-        WHERE id != ? AND stock > 0 
-        ORDER BY RAND() 
+    // Get all variants for the parent product
+    $variantsStmt = $pdo->prepare("
+        SELECT id, name, price, stock, weight, is_active
+        FROM products
+        WHERE parent_id = ? AND is_active = 1
+        ORDER BY price ASC
+    ");
+    $variantsStmt->execute([$product['parent_id'] ?? 0]);
+    $variants = $variantsStmt->fetchAll();
+
+    // Debug: Log the variants data
+    error_log('Variants data: ' . print_r($variants, true));
+
+    // Get the parent ID if this is a variant
+    $parentId = $product['parent_id'] ?? $productId;
+
+    // Check if user has purchased this product (for review purposes)
+    $hasPurchased = false;
+    if (isset($_SESSION['user_id'])) {
+        $userId = $_SESSION['user_id'];
+        $purchaseCheckStmt = $pdo->prepare("
+            SELECT COUNT(*) > 0 as has_purchased
+            FROM (
+                -- Check in pending_delivery_items
+                SELECT pdi.product_id
+                FROM pending_delivery pd
+                JOIN pending_delivery_items pdi ON pd.id = pdi.pending_delivery_id
+                WHERE pd.user_id = ? AND pd.status = 'delivered'
+
+                UNION ALL
+
+                -- Check in history_of_delivery_items
+                SELECT hdi.product_id
+                FROM history_of_delivery hd
+                JOIN history_of_delivery_items hdi ON hd.id = hdi.history_id
+                WHERE hd.user_id = ?
+            ) as user_orders
+            WHERE product_id IN (SELECT id FROM products WHERE id = ? OR parent_id = ? OR id = ?)
+            LIMIT 1
+        ");
+        $purchaseCheckStmt->execute([$userId, $userId, $productId, $parentId, $parentId]);
+        $hasPurchased = (bool)$purchaseCheckStmt->fetch(PDO::FETCH_ASSOC)['has_purchased'];
+    }
+
+    // Get reviews for the parent product
+    $reviewStmt = $pdo->prepare("
+        SELECT pr.*,
+               u.firstname,
+               u.lastname,
+               CONCAT(u.firstname, ' ', u.lastname) AS user_name
+        FROM product_reviews pr
+        LEFT JOIN users u ON pr.user_id = u.id
+        WHERE pr.product_id = ?
+        ORDER BY pr.created_at DESC
+    ");
+    $reviewStmt->execute([$parentId]);
+    $reviews = $reviewStmt->fetchAll();
+
+    // Calculate average rating
+    $totalRating = 0;
+    foreach ($reviews as $review) {
+        $totalRating += (float)$review['rating'];
+    }
+    $averageRating = count($reviews) > 0 ? $totalRating / count($reviews) : 0;
+
+    // Get related products (only if no variants)
+    $relatedProducts = [];
+    if (count($variants) <= 1) {
+        $relatedStmt = $pdo->prepare("
+            SELECT p.*, COALESCE(p.image, pp.image) AS display_image
+            FROM products p
+            LEFT JOIN parent_products pp ON p.parent_id = pp.id
+            WHERE p.id != ? AND p.parent_id != ? AND p.is_active = 1
+            ORDER BY RAND()
+            LIMIT 4
+
+        ");
+        $relatedStmt->execute([$productId, $product['parent_id'] ?? 0]);
+        $relatedProducts = $relatedStmt->fetchAll();
+    }
+
+    // Get related products
+    $relatedStmt = $pdo->prepare("
+        SELECT p.*,
+               COALESCE(p.image, pp.image) AS display_image
+        FROM products p
+        LEFT JOIN parent_products pp ON p.parent_id = pp.id
+        WHERE p.id != ? AND p.parent_id = ? AND p.is_active = 1
+        ORDER BY RAND()
         LIMIT 4
     ");
+    $relatedStmt->execute([$productId, $product['parent_id'] ?? 0]);
+    $relatedProducts = $relatedStmt->fetchAll();
 
-    if (!$relatedStmt->execute([$product_id])) {
-        throw new Exception('Failed to execute related products query');
+    // Prepare the response data
+    $response = [
+        'status' => 'success',
+        'product' => [
+            'id' => $product['id'],
+            'name' => $product['name'],
+            'description' => $product['description'],
+            'price' => $product['price'],
+            'stock' => $product['stock'],
+            'image' => $product['image'] ?? null,
+            'parent_id' => $product['parent_id'] ?? null,
+            'parent_name' => $product['parent_name'] ?? null,
+            'parent_description' => $product['parent_description'] ?? null,
+            'parent_image' => $product['parent_image'] ?? null,
+            'min_price' => $product['min_price'] ?? $product['price'],
+            'max_price' => $product['max_price'] ?? $product['price'],
+            'total_stock' => $product['total_stock'] ?? $product['stock'],
+            'has_purchased' => $hasPurchased,
+        ],
+        'variants' => [],
+        'reviews' => $reviews,
+        'average_rating' => $averageRating,
+        'review_count' => count($reviews),
+        'related_products' => $relatedProducts,
+        'has_purchased' => $hasPurchased // Also include at root level for easy access
+    ];
+
+    // If we have variants, make sure we're using the selected variant
+    if (count($variants) > 0) {
+        $selectedVariant = null;
+
+        // If a specific variant was requested, find it
+        if ($productId > 0) {
+            foreach ($variants as $variant) {
+                if ($variant['id'] == $productId) {
+                    $selectedVariant = $variant;
+                    break;
+                }
+            }
+        }
+
+        // If no specific variant was requested or it wasn't found, use the first one
+        if (!$selectedVariant) {
+            $selectedVariant = $variants[0];
+        }
+
+        // Update the product with the selected variant's details
+        $product = array_merge($product, $selectedVariant);
+        $product['id'] = $selectedVariant['id'];
+        $product['name'] = $selectedVariant['name'];
+        $product['price'] = $selectedVariant['price'];
+        $product['stock'] = $selectedVariant['stock'];
+        $product['weight'] = $selectedVariant['weight'] ?? null;
+
+        // Ensure parent name is included
+        if (!empty($product['parent_id'])) {
+            $stmt = $pdo->prepare("SELECT name FROM products WHERE id = ?");
+            $stmt->execute([$product['parent_id']]);
+            $parent = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($parent) {
+                $product['parent'] = ['name' => $parent['name']];
+            }
+        }
     }
-
-    $related_products = $relatedStmt->fetchAll(PDO::FETCH_ASSOC);
 
     // Prepare response
     $response = [
         'status' => 'success',
-        'product' => $product,
-        'related_products' => $related_products
+        'has_purchased' => $hasPurchased,
+        'product' => [
+            'id' => (int)$product['id'],
+            'name' => $product['name'],
+            'description' => $product['parent_description'] ?? $product['description'] ?? '',
+            'price' => (float)$product['price'],
+            'min_price' => (float)$product['min_price'],
+            'max_price' => (float)$product['max_price'],
+            'stock' => (int)$product['stock'],
+            'total_stock' => (int)$product['total_stock'],
+            'parent' => $product['parent_id'] ? [
+                'id' => (int)$product['parent_id'],
+                'name' => $product['parent_name'] ?? 'Unknown',
+                'image' => $product['parent_image'] ?? null,
+                'description' => $product['parent_description'] ?? null
+            ] : null,
+            'image' => !empty($product['parent_image']) ? "uploads/items/" . $product['parent_image'] : 'img/products/placeholder.jpg',
+            'variants' => array_map(function($item) use ($product) {
+                return [
+                    'id' => (int)$item['id'],
+                    'name' => $item['name'],
+                    'price' => (float)$item['price'],
+                    'stock' => (int)$item['stock'],
+                    'weight' => $item['weight'] ?? null
+                ];
+            }, $variants)
+        ],
+        'reviews' => $reviews,
+        'average_rating' => round($averageRating, 1),
+        'review_count' => count($reviews),
+        'related_products' => array_map(function($item) {
+            return [
+                'id' => (int)$item['id'],
+                'name' => $item['name'],
+                'price' => (float)$item['price'],
+                'image' => $item['display_image'] ?? 'img/products/placeholder.jpg'
+            ];
+        }, $relatedProducts)
     ];
 
-    sendJsonResponse($response);
+    echo json_encode($response);
 
 } catch (PDOException $e) {
-    error_log('Database error in get_product_details.php: ' . $e->getMessage());
-    sendJsonResponse([
+    error_log('Database error: ' . $e->getMessage());
+    http_response_code(500);
+    echo json_encode([
         'status' => 'error',
         'message' => 'Database error occurred',
         'error' => $e->getMessage()
-    ], 500);
+    ]);
 } catch (Exception $e) {
-    error_log('Error in get_product_details.php: ' . $e->getMessage());
-    sendJsonResponse([
+    http_response_code(400);
+    echo json_encode([
         'status' => 'error',
         'message' => $e->getMessage()
-    ], 500);
+    ]);
 }

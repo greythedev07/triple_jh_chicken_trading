@@ -25,25 +25,32 @@ $stmt = $db->prepare("SELECT name, vehicle_type, phone FROM drivers WHERE id = ?
 $stmt->execute([$driver_id]);
 $driver = $stmt->fetch(PDO::FETCH_ASSOC);
 
-// 🟢 Exclude cancelled, picked up, and delivered orders from stats
-$pending_pickups = $db->query("
-    SELECT COUNT(*) FROM pending_delivery 
-    WHERE driver_id = $driver_id 
-    AND status NOT IN ('Cancelled','cancelled','to be delivered','out for delivery','assigned','delivered')
-")->fetchColumn();
+// 🟢 Pending pickups = orders assigned to this driver that have NOT been picked up yet
+// Keep this logic consistent with the "Pending Pickups" table below.
+$stmt = $db->prepare("
+    SELECT COUNT(*)
+    FROM pending_delivery pd
+    WHERE pd.driver_id = ?
+      AND pd.status IN ('assigned', 'pending')
+      AND pd.id NOT IN (SELECT pending_delivery_id FROM to_be_delivered)
+");
+$stmt->execute([$driver_id]);
+$pending_pickups = (int)$stmt->fetchColumn();
 
 $ongoing_deliveries = $db->query("
     SELECT COUNT(*) FROM to_be_delivered tbd
-    WHERE driver_id = $driver_id
-    AND status != 'delivered'
+    LEFT JOIN pending_delivery pd ON pd.id = tbd.pending_delivery_id
+    WHERE tbd.driver_id = $driver_id
+    AND tbd.status != 'delivered'
+    AND (pd.status IS NULL OR pd.status NOT IN ('cancelled', 'canceled'))
     AND NOT EXISTS (
-        SELECT 1 FROM history_of_delivery hod 
+        SELECT 1 FROM history_of_delivery hod
         WHERE hod.to_be_delivered_id = tbd.id
     )
 ")->fetchColumn();
 
 $completed_deliveries = $db->query("
-    SELECT COUNT(*) FROM history_of_delivery 
+    SELECT COUNT(*) FROM history_of_delivery
     WHERE driver_id = $driver_id
 ")->fetchColumn();
 
@@ -53,7 +60,8 @@ $stmt = $db->prepare("
     FROM pending_delivery pd
     JOIN users u ON pd.user_id = u.id
     WHERE pd.driver_id = ?
-    AND pd.status NOT IN ('Cancelled','cancelled','to be delivered','out for delivery','assigned','delivered')
+    AND pd.status IN ('assigned', 'pending')  -- Include both 'assigned' and 'pending' statuses
+    AND pd.id NOT IN (SELECT pending_delivery_id FROM to_be_delivered)  -- Exclude already picked up orders
     ORDER BY pd.id DESC
     LIMIT $items_per_page OFFSET $offset_pickup
 ");
@@ -64,23 +72,26 @@ $pickups = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $total_pickups = $db->prepare("
     SELECT COUNT(*) FROM pending_delivery pd
     WHERE pd.driver_id = ?
-    AND pd.status NOT IN ('Cancelled','cancelled','to be delivered','out for delivery','assigned','delivered')
+    AND pd.status IN ('assigned', 'pending')  -- Include both 'assigned' and 'pending' statuses
+    AND pd.id NOT IN (SELECT pending_delivery_id FROM to_be_delivered)  -- Exclude already picked up orders
 ");
 $total_pickups->execute([$driver_id]);
 $total_pickups_count = $total_pickups->fetchColumn();
 $total_pickup_pages = ceil($total_pickups_count / $items_per_page);
 
 // Fetch ongoing deliveries (exclude completed ones) with pagination
-// Exclude deliveries that are already in history
+// Exclude deliveries that are already in history and cancelled orders
 $stmt = $db->prepare("
-    SELECT tbd.*, CONCAT(u.firstname, ' ', u.lastname) AS customer_name, u.phonenumber AS customer_phone, pd.total_amount, pd.order_number
+    SELECT tbd.*, CONCAT(u.firstname, ' ', u.lastname) AS customer_name, u.phonenumber AS customer_phone,
+           pd.total_amount, pd.order_number, pd.payment_method
     FROM to_be_delivered tbd
     JOIN users u ON tbd.user_id = u.id
     LEFT JOIN pending_delivery pd ON pd.id = tbd.pending_delivery_id
     WHERE tbd.driver_id = ?
     AND tbd.status != 'delivered'
+    AND (pd.status IS NULL OR pd.status NOT IN ('cancelled', 'canceled'))
     AND NOT EXISTS (
-        SELECT 1 FROM history_of_delivery hod 
+        SELECT 1 FROM history_of_delivery hod
         WHERE hod.to_be_delivered_id = tbd.id
     )
     ORDER BY tbd.id DESC
@@ -95,7 +106,7 @@ $total_delivering = $db->prepare("
     WHERE tbd.driver_id = ?
     AND tbd.status != 'delivered'
     AND NOT EXISTS (
-        SELECT 1 FROM history_of_delivery hod 
+        SELECT 1 FROM history_of_delivery hod
         WHERE hod.to_be_delivered_id = tbd.id
     )
 ");
@@ -135,27 +146,51 @@ $total_history_pages = ceil($total_history_count / $items_per_page);
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
+        :root {
+            --sunset-gradient-start: #ffb347;
+            --sunset-gradient-end: #ff6b26;
+            --rich-amber: #f18f01;
+            --buttered-sand: #ffe4c1;
+            --deep-chestnut: #7a3a12;
+            --spark-gold: #f9a219;
+            --cream-panel: #fff5e2;
+            --accent-light: #fff7e3;
+            --accent-dark: #6d3209;
+        }
+
         body {
-            background-color: #f8f9fb;
+            background: linear-gradient(180deg, var(--buttered-sand), #ffd58b);
             font-family: "Inter", "Segoe UI", sans-serif;
-            color: #222;
+            color: var(--accent-dark);
             display: flex;
             flex-direction: column;
             min-height: 100vh;
         }
 
         .topbar {
-            background: #000;
-            color: #fff;
-            padding: 15px 30px;
+            background: linear-gradient(135deg, var(--sunset-gradient-start), var(--sunset-gradient-end));
+            color: white;
+            padding: 1rem 2rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         }
 
-        .topbar .logo {
-            font-weight: 700;
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: white;
+        }
+
+        .btn-outline-light {
+            color: white;
+            border-color: white;
+        }
+
+        .btn-outline-light:hover {
+            background-color: white;
+            color: var(--spark-gold);
         }
 
         .dashboard-container {
@@ -166,12 +201,13 @@ $total_history_pages = ceil($total_history_count / $items_per_page);
         }
 
         .sidebar {
-            background: #fff;
-            border: 1px solid #ddd;
-            border-radius: 10px;
+            background: var(--cream-panel);
+            border: 1px solid rgba(241, 143, 1, 0.35);
+            border-radius: 16px;
             width: 250px;
             height: fit-content;
             padding: 20px;
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.15);
         }
 
         .sidebar h5 {
@@ -181,17 +217,17 @@ $total_history_pages = ceil($total_history_count / $items_per_page);
 
         .sidebar a {
             display: block;
-            color: #333;
+            color: rgba(109, 50, 9, 0.85);
             text-decoration: none;
             padding: 10px 0;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.7);
             transition: 0.2s;
         }
 
         .sidebar a:hover,
         .sidebar a.active {
             font-weight: 600;
-            color: #0d6efd;
+            color: var(--rich-amber);
         }
 
         .content {
@@ -210,11 +246,11 @@ $total_history_pages = ceil($total_history_count / $items_per_page);
         }
 
         .card {
-            border: 1px solid #ddd;
-            border-radius: 10px;
-            background: #fff;
+            border: 1px solid rgba(241, 143, 1, 0.35);
+            border-radius: 16px;
+            background: var(--cream-panel);
             padding: 25px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 14px 34px rgba(0, 0, 0, 0.16);
         }
 
         .stats-card {
@@ -229,13 +265,13 @@ $total_history_pages = ceil($total_history_count / $items_per_page);
         }
 
         .stats-card .display-6 {
-            color: #0d6efd;
+            color: var(--rich-amber);
             font-weight: 700;
         }
 
         footer {
-            background: #111;
-            color: #ddd;
+            background: linear-gradient(180deg, var(--sunset-gradient-start), var(--sunset-gradient-end));
+            color: var(--accent-light);
             padding: 2rem 0;
             text-align: center;
             margin-top: auto;
@@ -247,13 +283,14 @@ $total_history_pages = ceil($total_history_count / $items_per_page);
         }
 
         .pagination .page-link {
-            color: #000;
-            border-color: #ddd;
+            color: var(--accent-dark);
+            border-color: rgba(0, 0, 0, 0.1);
+            background: rgba(255, 255, 255, 0.9);
         }
 
         .pagination .page-link:hover {
-            background-color: #f8f9fa;
-            border-color: #ddd;
+            background-color: rgba(255, 255, 255, 0.95);
+            border-color: var(--rich-amber);
         }
 
         .pagination .page-item.active .page-link {
@@ -294,15 +331,59 @@ $total_history_pages = ceil($total_history_count / $items_per_page);
             background-position: right calc(0.375em + 0.1875rem) center;
             background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
         }
+
+        /* Modal theming */
+        .modal-content {
+            border-radius: 18px;
+            border: 1px solid rgba(241, 143, 1, 0.3);
+            background: var(--cream-panel);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+        }
+
+        .modal-header {
+            background: linear-gradient(180deg, var(--sunset-gradient-start), var(--sunset-gradient-end));
+            border-bottom: none;
+        }
+
+        .modal-header .modal-title {
+            color: var(--accent-dark);
+            font-weight: 700;
+        }
+
+        .modal-footer {
+            border-top: none;
+        }
+
+        .btn-secondary {
+            border-radius: 999px;
+        }
+
+        .modal .btn.btn-dark {
+            background: linear-gradient(180deg, var(--sunset-gradient-start), var(--sunset-gradient-end));
+            border: none;
+            border-radius: 999px;
+            font-weight: 600;
+            color: var(--accent-dark);
+            box-shadow: 0 10px 26px rgba(241, 143, 1, 0.45);
+        }
+
+        .modal .btn.btn-dark:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 14px 34px rgba(241, 143, 1, 0.55);
+        }
     </style>
 </head>
 
 <body>
     <div class="topbar">
         <div class="logo">Triple JH — Driver Panel</div>
-        <div>
-            <span class="me-3">👋 Welcome, <?= htmlspecialchars($driver['name']) ?></span>
-            <a href="logout.php" class="text-light ms-3">Logout</a>
+        <div class="d-flex align-items-center gap-2">
+            <a href="drivers/driver_profile.php" class="btn btn-outline-light">
+                <i class="fas fa-user-edit me-2"></i> Your Profile
+            </a>
+            <a href="logout.php" class="btn btn-outline-light" onclick="return confirm('Are you sure you want to log out?')">
+                <i class="fas fa-sign-out-alt me-2"></i> Logout
+            </a>
         </div>
     </div>
 
@@ -313,7 +394,6 @@ $total_history_pages = ceil($total_history_count / $items_per_page);
             <a href="#pickup" onclick="showSection('pickup')">Pickups</a>
             <a href="#delivering" onclick="showSection('delivering')">Delivering</a>
             <a href="#history" onclick="showSection('history')">Delivery History</a>
-            <a href="drivers/driver_settings.php">Driver Settings</a>
         </div>
 
         <div class="content">
@@ -367,8 +447,21 @@ $total_history_pages = ceil($total_history_count / $items_per_page);
                                         <td>₱<?= number_format((float)($p['total_amount'] ?? 0), 2) ?></td>
                                         <?php
                                         $rs = strtolower($p['status'] ?? '');
-                                        $label = $rs === '' ? 'Pending' : ($rs === 'pending' ? 'Pending' : (($rs === 'to be delivered' || $rs === 'out for delivery' || $rs === 'assigned') ? 'Delivering' : ($rs === 'delivered' ? 'Delivered' : ($rs === 'cancelled' || $rs === 'canceled' ? 'Cancelled' : ucfirst($rs)))));
-                                        $badge = $label === 'Pending' ? 'bg-warning' : ($label === 'Delivering' ? 'bg-info' : ($label === 'Delivered' ? 'bg-success' : 'bg-secondary'));
+                                        $label = match($rs) {
+                                            '', 'pending' => 'Pending',
+                                            'assigned' => 'Assigned',
+                                            'to be delivered', 'out for delivery' => 'Delivering',
+                                            'delivered' => 'Delivered',
+                                            'cancelled', 'canceled' => 'Cancelled',
+                                            default => ucfirst($rs)
+                                        };
+                                        $badge = match($label) {
+                                            'Pending' => 'bg-warning',
+                                            'Assigned' => 'bg-info',
+                                            'Delivering' => 'bg-primary',
+                                            'Delivered' => 'bg-success',
+                                            default => 'bg-secondary'
+                                        };
                                         ?>
                                         <td><span class="badge <?= $badge ?>"><?= htmlspecialchars($label) ?></span></td>
                                         <td>
@@ -437,7 +530,14 @@ $total_history_pages = ceil($total_history_count / $items_per_page);
                                         ?>
                                         <td><span class="badge <?= $badge2 ?>"><?= htmlspecialchars($label2) ?></span></td>
                                         <td>
-                                            <button class="btn btn-sm btn-dark" data-bs-toggle="modal" data-bs-target="#completeModal" data-delivery-id="<?= (int)$d['id'] ?>" data-total-amount="<?= (float)($d['total_amount'] ?? 0) ?>">Complete</button>
+                                            <button class="btn btn-sm btn-dark"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#completeModal"
+                                                    data-delivery-id="<?= (int)$d['id'] ?>"
+                                                    data-total-amount="<?= (float)($d['total_amount'] ?? 0) ?>"
+                                                    data-payment-method="<?= htmlspecialchars($d['payment_method'] ?? '') ?>">
+                                                Complete
+                                            </button>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -643,6 +743,7 @@ $total_history_pages = ceil($total_history_count / $items_per_page);
                 const button = event.relatedTarget;
                 const deliveryId = button?.getAttribute('data-delivery-id');
                 const totalAmount = parseFloat(button?.getAttribute('data-total-amount') || 0);
+                const paymentMethod = button?.getAttribute('data-payment-method')?.toLowerCase() || '';
 
                 const deliveryInput = document.getElementById('complete_delivery_id');
                 const requiredAmountInput = document.getElementById('required_amount');
@@ -656,14 +757,34 @@ $total_history_pages = ceil($total_history_count / $items_per_page);
 
                 // Reset form fields
                 if (paymentReceivedInput) {
-                    paymentReceivedInput.value = '';
-                    paymentReceivedInput.classList.remove('is-invalid', 'is-valid');
+                    // Auto-fill payment received if payment method is GCASH
+                    if (paymentMethod === 'gcash') {
+                        paymentReceivedInput.value = totalAmount.toFixed(2);
+                        paymentReceivedInput.readOnly = true;
+                        paymentReceivedInput.classList.add('is-valid');
+
+                        // Trigger change event to calculate change
+                        const event = new Event('input', { bubbles: true });
+                        paymentReceivedInput.dispatchEvent(event);
+                    } else {
+                        paymentReceivedInput.value = '';
+                        paymentReceivedInput.readOnly = false;
+                        paymentReceivedInput.classList.remove('is-invalid', 'is-valid');
+                    }
                 }
+
                 if (changeGivenInput) changeGivenInput.value = '0.00';
 
                 // Clear any previous error messages
                 const errorDiv = document.getElementById('payment_error');
-                if (errorDiv) errorDiv.textContent = '';
+                if (errorDiv) {
+                    if (paymentMethod === 'gcash') {
+                        errorDiv.textContent = 'GCASH payment - amount auto-filled';
+                        errorDiv.className = 'valid-feedback';
+                    } else {
+                        errorDiv.textContent = '';
+                    }
+                }
             });
         }
 
@@ -707,9 +828,51 @@ $total_history_pages = ceil($total_history_count / $items_per_page);
             });
         }
 
-        // Prevent duplicate form submissions
+        // Prevent form submission if payment is insufficient
         document.querySelectorAll('form').forEach(form => {
             form.addEventListener('submit', function(e) {
+                const paymentReceivedInput = document.getElementById('payment_received');
+                const requiredAmount = parseFloat(document.getElementById('required_amount')?.value || 0);
+
+                if (paymentReceivedInput) {
+                    const paymentReceived = parseFloat(paymentReceivedInput.value || 0);
+
+                    if (paymentReceived < requiredAmount) {
+                        e.preventDefault();
+
+                        // Show error message
+                        const errorDiv = document.getElementById('payment_error') || document.createElement('div');
+                        errorDiv.textContent = `Payment insufficient. Need ₱${(requiredAmount - paymentReceived).toFixed(2)} more.`;
+                        errorDiv.className = 'invalid-feedback';
+                        errorDiv.id = 'payment_error';
+
+                        if (!paymentReceivedInput.nextElementSibling || !paymentReceivedInput.nextElementSibling.matches('.invalid-feedback')) {
+                            paymentReceivedInput.insertAdjacentElement('afterend', errorDiv);
+                        }
+
+                        paymentReceivedInput.classList.add('is-invalid');
+                        paymentReceivedInput.focus();
+
+                        // Re-enable submit button after a short delay
+                        const submitBtn = this.querySelector('button[type="submit"]');
+                        if (submitBtn) {
+                            submitBtn.disabled = false;
+                            submitBtn.textContent = 'Submit';
+                        }
+
+                        // Show error alert
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Insufficient Payment',
+                            text: `Payment received (₱${paymentReceived.toFixed(2)}) is less than the required amount (₱${requiredAmount.toFixed(2)}).`,
+                            confirmButtonColor: '#f18f01'
+                        });
+
+                        return false;
+                    }
+                }
+
+                // If payment is sufficient, proceed with form submission
                 const submitBtn = this.querySelector('button[type="submit"]');
                 if (submitBtn) {
                     submitBtn.disabled = true;

@@ -18,16 +18,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $payment_method = 'GCash';
         $payment_status = 'pending'; // GCash payments need admin verification
 
-        // Validate GCash reference number
-        if (empty($gcash_reference)) {
-            header("Location: checkout_failed.php?error=" . urlencode("GCash reference number is required."));
+        // Handle GCash screenshot upload
+        if (!isset($_FILES['gcash_screenshot']) || $_FILES['gcash_screenshot']['error'] !== UPLOAD_ERR_OK) {
+            header("Location: checkout_failed.php?error=" . urlencode("Payment screenshot is required for GCash payments."));
             exit;
         }
 
-        if (strlen($gcash_reference) < 8) {
-            header("Location: checkout_failed.php?error=" . urlencode("Invalid GCash reference number format."));
+        $screenshot_file = $_FILES['gcash_screenshot'];
+
+        // Validate file size (5MB max)
+        if ($screenshot_file['size'] > 5 * 1024 * 1024) {
+            header("Location: checkout_failed.php?error=" . urlencode("File size must be less than 5MB."));
             exit;
         }
+
+        // Validate file type
+        $allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+        if (!in_array($screenshot_file['type'], $allowed_types)) {
+            header("Location: checkout_failed.php?error=" . urlencode("Invalid file type. Please upload JPG, PNG, or WebP image."));
+            exit;
+        }
+
+        // Create upload directory if it doesn't exist
+        $upload_dir = '../uploads/gcash_screenshots/';
+        if (!is_dir($upload_dir)) {
+            mkdir($upload_dir, 0755, true);
+        }
+
+        // Generate unique filename
+        $file_extension = pathinfo($screenshot_file['name'], PATHINFO_EXTENSION);
+        $unique_filename = 'gcash_' . date('Y-m-d_H-i-s') . '_' . uniqid() . '.' . $file_extension;
+        $upload_path = $upload_dir . $unique_filename;
+
+        // Upload file
+        if (!move_uploaded_file($screenshot_file['tmp_name'], $upload_path)) {
+            header("Location: checkout_failed.php?error=" . urlencode("Failed to upload payment screenshot. Please try again."));
+            exit;
+        }
+
+        $gcash_screenshot_path = $upload_path;
     } else {
         $payment_method = 'COD';
         $payment_status = 'verified';
@@ -63,56 +92,131 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
+    // Ensure there is at least one active driver before allowing checkout
+    try {
+        $driverCountStmt = $db->query("SELECT COUNT(*) FROM drivers WHERE is_active = 1");
+        $activeDriverCount = (int) $driverCountStmt->fetchColumn();
+        if ($activeDriverCount === 0) {
+            header("Location: checkout_failed.php?error=" . urlencode("We are currently unable to accept orders because no delivery drivers are available. Please try again later."));
+            exit;
+        }
+    } catch (Exception $e) {
+        header("Location: checkout_failed.php?error=" . urlencode("Unable to verify driver availability. Please try again later."));
+        exit;
+    }
+
     try {
         // Step 2: Begin atomic checkout
         $db->beginTransaction();
 
-        // Step 3: Read cart items with current stock
-        $stmt = $db->prepare(" SELECT c.id AS cart_id, c.quantity, p.id AS product_id, p.price, p.stock FROM cart c JOIN products p ON c.product_id = p.id WHERE c.user_id = ? ");
+        // Step 3: Read cart items with current stock and parent product info
+        $stmt = $db->prepare("
+            SELECT
+                c.id AS cart_id,
+                c.quantity,
+                p.id AS product_id,
+                p.name AS variant_name,
+                p.price,
+                p.stock,
+                p.parent_id,
+                pp.name AS parent_name,
+                pp.image AS parent_image
+            FROM cart c
+            JOIN products p ON c.product_id = p.id
+            LEFT JOIN parent_products pp ON p.parent_id = pp.id
+            WHERE c.user_id = ?
+        ");
         $stmt->execute([$user_id]);
         $cartItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         if (empty($cartItems)) {
             throw new Exception("Your cart is empty.");
         }
+
         // Step 4: Validate quantities against available stock
-        foreach ($cartItems as $ci) {
-            $available = (int)($ci['stock'] ?? 0);
-            if ($available < (int)$ci['quantity']) {
-                throw new Exception('One or more items exceed available stock. Please review your cart.');
+        foreach ($cartItems as $item) {
+            $available = (int)($item['stock'] ?? 0);
+            if ($available < (int)$item['quantity']) {
+                $productName = !empty($item['variant_name']) ?
+                    htmlspecialchars($item['parent_name'] . ' - ' . $item['variant_name']) :
+                    htmlspecialchars($item['parent_name']);
+                throw new Exception("Sorry, we only have $available of $productName in stock. Please update your cart.");
             }
         }
 
-        // Step 5: Choose driver with lightest load (only for COD payments)
+        // Step 5: Choose driver with no active deliveries (only for COD payments)
         $assignedDriver = NULL;
         if ($payment_method === 'COD') {
-            $driverStmt = $db->query(" SELECT id FROM drivers ORDER BY ( SELECT COUNT(*) FROM pending_delivery WHERE driver_id = drivers.id AND status = 'pending' ) ASC LIMIT 1 ");
+            $driverStmt = $db->query("
+                SELECT d.id
+                FROM drivers d
+                LEFT JOIN (
+                    SELECT driver_id, COUNT(*) as active_deliveries
+                    FROM pending_delivery
+                    WHERE status IN ('pending', 'assigned', 'to be delivered', 'out for delivery')
+                    GROUP BY driver_id
+                ) pd ON d.id = pd.driver_id
+                WHERE d.is_active = 1
+                AND (pd.driver_id IS NULL OR pd.active_deliveries = 0)
+                ORDER BY (
+                    SELECT COUNT(*)
+                    FROM pending_delivery
+                    WHERE driver_id = d.id
+                    AND status = 'completed'
+                ) ASC
+                LIMIT 1
+
+            ");
             $assignedDriver = $driverStmt->fetchColumn() ?: NULL;
+
+            // If no available drivers, set a flag to show a message to the user
+            if (!$assignedDriver) {
+                $noDriversAvailable = true;
+            }
         }
 
-        // Step 6: Generate order number and create pending delivery header
-        $orderNumber = generateOrderNumber($db);
-        $stmt = $db->prepare(" INSERT INTO pending_delivery (order_number, user_id, driver_id, payment_method, payment_status, gcash_reference, status, delivery_address, total_amount, date_requested) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, NOW()) ");
-        $stmt->execute([$orderNumber, $user_id, $assignedDriver, $payment_method, $payment_status, $gcash_reference, $full_address, $total]);
-        $pending_delivery_id = $db->lastInsertId();
-        // Step 7: Copy cart items to delivery items
-        $stmt = $db->prepare(" INSERT INTO pending_delivery_items (pending_delivery_id, product_id, quantity, price) VALUES (?, ?, ?, ?) ");
+        // Step 6: If no drivers available for COD, throw an error
+        if (isset($noDriversAvailable) && $noDriversAvailable) {
+            throw new Exception("We're sorry, but all our drivers are currently busy with other deliveries. Please try again later or choose a different delivery time.");
+        }
 
+        // Step 7: Generate order number and create pending delivery header
+        $orderNumber = generateOrderNumber($db);
+        $status = 'pending'; // Always start as pending, will be updated by driver pickup
+        $stmt = $db->prepare("INSERT INTO pending_delivery (order_number, user_id, driver_id, payment_method, payment_status, gcash_reference, gcash_payment_screenshot, status, delivery_address, total_amount, date_requested) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+        $stmt->execute([$orderNumber, $user_id, $assignedDriver, $payment_method, $payment_status, $gcash_reference, $gcash_screenshot_path, $status, $full_address, $total]);
+        $pending_delivery_id = $db->lastInsertId();
+
+        // Step 8: Copy cart items to pending_delivery_items
+        $stmt = $db->prepare("INSERT INTO pending_delivery_items (pending_delivery_id, product_id, quantity, price) VALUES (?, ?, ?, ?)");
         foreach ($cartItems as $item) {
             $stmt->execute([$pending_delivery_id, $item['product_id'], $item['quantity'], $item['price']]);
         }
 
-        // Step 8: Decrement inventory for each item
+        // If driver is assigned, update status to assigned but don't create to_be_delivered yet
+        if ($assignedDriver) {
+            $update = $db->prepare("UPDATE pending_delivery SET status = 'assigned' WHERE id = ?");
+            $update->execute([$pending_delivery_id]);
+        }
+
+        // Step 8: Decrement inventory for each item with transaction safety
         $decrement = $db->prepare("UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?");
+        $check = $db->prepare("SELECT stock FROM products WHERE id = ? FOR UPDATE");
+
         foreach ($cartItems as $item) {
-            $affected = $decrement->execute([$item['quantity'], $item['product_id'], $item['quantity']]);
-            // Verify stock didn't go negative
-            $check = $db->prepare("SELECT stock FROM products WHERE id = ?");
+            // First check stock with row lock to prevent race conditions
             $check->execute([$item['product_id']]);
-            $remaining = (int)$check->fetchColumn();
-            if ($remaining < 0) {
-                throw new Exception('Inventory update failed due to insufficient stock.');
+            $currentStock = (int)$check->fetchColumn();
+
+            if ($currentStock < $item['quantity']) {
+                $productName = !empty($item['variant_name']) ?
+                    htmlspecialchars($item['parent_name'] . ' - ' . $item['variant_name']) :
+                    htmlspecialchars($item['parent_name']);
+                throw new Exception("Insufficient stock for $productName. Only $currentStock available.");
             }
+
+            // Update stock
+            $decrement->execute([$item['quantity'], $item['product_id'], $item['quantity']]);
         }
         // Step 9: Clear cart and update user profile
         $stmt = $db->prepare("DELETE FROM cart WHERE user_id = ?");

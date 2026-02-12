@@ -9,11 +9,17 @@ if (!isset($_SESSION['admin_id'])) {
 }
 
 try {
-    // Get total products
-    $totalProducts = $db->query("SELECT COUNT(*) FROM products")->fetchColumn();
+    // Get parent products count
+    $parentProducts = $db->query("SELECT COUNT(*) FROM parent_products")->fetchColumn();
 
-    // Get pending orders
-    $pendingOrders = $db->query("SELECT COUNT(*) FROM pending_delivery WHERE status = 'pending'")->fetchColumn();
+    // Get variants count (all products that are not in parent_products)
+    $variantProducts = $db->query("SELECT COUNT(*) FROM products")->fetchColumn();
+
+    // Calculate total products (sum of parents and variants)
+    $totalProducts = $parentProducts + $variantProducts;
+
+    // Get pending orders (treat blank and common variants as pending)
+    $pendingOrders = $db->query("SELECT COUNT(*) FROM pending_delivery WHERE status IS NULL OR status = '' OR LOWER(status) IN ('pending','pending delivery')")->fetchColumn();
 
     // Get active drivers
     $activeDrivers = $db->query("SELECT COUNT(*) FROM drivers WHERE is_active = 1")->fetchColumn();
@@ -23,6 +29,8 @@ try {
 
     echo json_encode([
         'totalProducts' => (int)$totalProducts,
+        'parentProducts' => (int)$parentProducts,
+        'variantProducts' => (int)$variantProducts,
         'pendingOrders' => (int)$pendingOrders,
         'activeDrivers' => (int)$activeDrivers,
         'totalUsers' => (int)$totalUsers

@@ -11,9 +11,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Step 1: Read form data
     $driver_id = $_SESSION['driver_id'];
     $to_be_delivered_id = $_POST['to_be_delivered_id'];
-    $payment_received = $_POST['payment_received'];
-    $change_given = $_POST['change_given'];
-    $delivery_time = $_POST['delivery_time'];
+    $payment_received = floatval($_POST['payment_received']);
+    $change_given = floatval($_POST['change_given']);
+
+    // Get current timestamp in MySQL format
+    $current_timestamp = date('Y-m-d H:i:s');
 
     // Step 2: Save delivery proof image
     $proofPath = null;
@@ -67,18 +69,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'delivery_address' => $delivery['delivery_address'],
                 'payment_received' => $payment_received,
                 'change_given' => $change_given,
-                'delivery_time' => $delivery_time,
+                'delivery_time' => $current_timestamp,
                 'proof_image' => $proofPath
             ], true));
 
-            $insert = $db->prepare("INSERT INTO history_of_delivery (to_be_delivered_id, driver_id, user_id, order_number, payment_method, delivery_address, payment_received, change_given, delivery_time, proof_image) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $insert->execute([$to_be_delivered_id, $driver_id, $delivery['user_id'], $orderInfo['order_number'], $orderInfo['payment_method'], $delivery['delivery_address'], $payment_received, $change_given, $delivery_time, $proofPath]);
+            // Log the values being inserted for debugging
+            error_log("Inserting into history_of_delivery with current time: " . $current_timestamp);
+
+            // First, let's verify all required fields have values
+            $requiredFields = [
+                'to_be_delivered_id' => $to_be_delivered_id,
+                'driver_id' => $driver_id,
+                'user_id' => $delivery['user_id'],
+                'order_number' => $orderInfo['order_number'],
+                'payment_method' => $orderInfo['payment_method'],
+                'delivery_address' => $delivery['delivery_address'],
+                'payment_received' => $payment_received,
+                'change_given' => $change_given,
+                'delivery_time' => $current_timestamp,
+                'proof_image' => $proofPath
+            ];
+
+            // Log all values for debugging
+            error_log("Insert values: " . print_r($requiredFields, true));
+
+            // Build the SQL query dynamically to only include provided fields
+            $columns = [];
+            $placeholders = [];
+            $values = [];
+
+            foreach ($requiredFields as $column => $value) {
+                if ($value !== null) {
+                    $columns[] = $column;
+                    $placeholders[] = '?';
+                    $values[] = $value;
+                }
+            }
+
+            $sql = "INSERT INTO history_of_delivery (" . implode(', ', $columns) . ")
+                    VALUES (" . implode(', ', $placeholders) . ")";
+
+            error_log("Executing SQL: $sql");
+
+            // Prepare and execute the query
+            $insert = $db->prepare($sql);
+            $result = $insert->execute($values);
             $historyId = $db->lastInsertId();
 
-            error_log("Inserted into history_of_delivery. History ID: $historyId");
-
-            if (!$historyId) {
-                throw new Exception("Failed to insert into history_of_delivery - lastInsertId() returned false");
+            if ($result && $historyId) {
+                error_log("Successfully inserted into history_of_delivery. History ID: $historyId");
+            } else {
+                $errorInfo = $insert->errorInfo();
+                error_log("Failed to insert into history_of_delivery. Error: " . print_r($errorInfo, true));
+                throw new Exception("Failed to insert into history_of_delivery: " . ($errorInfo[2] ?? 'Unknown error'));
             }
 
             // Step 6: Copy delivery items to history

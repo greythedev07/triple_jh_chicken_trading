@@ -76,16 +76,16 @@ A comprehensive web-based delivery management system for chicken trading busines
 ### Step 1: Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/commissioned_app.git
-cd commissioned_app
+git clone https://github.com/greythedev07/triple_jh_chicken_trading.git
+cd triple_jh_chicken_trading
 ```
 
 ### Step 2: Setup Web Server
 
 1. Copy the project folder to your web server directory:
-   - **XAMPP**: `C:\xampp\htdocs\commissioned_app`
-   - **WAMP**: `C:\wamp64\www\commissioned_app`
-   - **LAMP**: `/var/www/html/commissioned_app`
+   - **XAMPP**: `C:\xampp\htdocs\triple_jh_chicken_trading`
+   - **WAMP**: `C:\wamp64\www\triple_jh_chicken_trading`
+   - **LAMP**: `/var/www/html/triple_jh_chicken_trading`
 
 ### Step 3: Start Services
 
@@ -124,7 +124,7 @@ chmod 755 uploads/qr_codes/
 
 ### Option 1: Automatic Setup (Recommended)
 
-1. Navigate to: `http://localhost/commissioned_app/database_setup.sql`
+1. Import the SQL file through phpMyAdmin or MySQL command line
 2. Import the SQL file through phpMyAdmin or MySQL command line
 3. The script will create all necessary tables and sample data
 
@@ -159,19 +159,19 @@ The database schema is defined in `database_setup.sql` and includes the followin
 
 ### 🛒 Customer
 
-- **Access**: `http://localhost/commissioned_app/`
+- **Access**: `http://localhost/triple_jh_chicken_trading/`
 - **Features**: Browse products, place orders, track deliveries
 - **Registration**: Public registration available
 
 ### 🚚 Driver
 
-- **Access**: `http://localhost/commissioned_app/drivers/driver_login.php`
+- **Access**: `http://localhost/triple_jh_chicken_trading/drivers/driver_login.php`
 - **Features**: Manage deliveries, confirm pickups, complete deliveries
 - **Registration**: Public registration with vehicle details
 
 ### 👨‍💼 Admin
 
-- **Access**: `http://localhost/commissioned_app/adminaccounts/admin_login.php`
+- **Access**: `http://localhost/triple_jh_chicken_trading/adminaccounts/admin_login.php`
 - **Features**: Manage products, orders, drivers, and system settings
 - **Registration**: Requires admin key (default: `80085`)
 
@@ -201,7 +201,7 @@ The database schema is defined in `database_setup.sql` and includes the followin
 ## 📁 Project Structure
 
 ```
-commissioned_app/
+triple_jh_chicken_trading/
 ├── admin/
 │   ├── ... (Admin-specific PHP scripts for managing products, orders, etc.)
 ├── adminaccounts/
@@ -241,6 +241,11 @@ commissioned_app/
 ├── logout.php
 └── README.md
 ```
+
+## 📚 Full Documentation
+
+- **Project documentation (detailed)**: `docs/PROJECT_DOCUMENTATION.md`
+- **Endpoint reference**: `docs/API_ENDPOINTS.md`
 
 ## 📖 Usage Guide
 

@@ -13,10 +13,10 @@ function generateOrderNumber($db)
 
     // Get the highest order number for today
     $stmt = $db->prepare("
-        SELECT order_number 
-        FROM pending_delivery 
-        WHERE order_number LIKE ? 
-        ORDER BY order_number DESC 
+        SELECT order_number
+        FROM pending_delivery
+        WHERE order_number LIKE ?
+        ORDER BY order_number DESC
         LIMIT 1
     ");
     $stmt->execute([$prefix . '%']);
@@ -69,16 +69,57 @@ function getOrderByNumber($db, $orderNumber)
 }
 
 /**
- * Get order items by order ID
+ * Get order items by order ID with parent product information
  */
 function getOrderItems($db, $orderId)
 {
     $stmt = $db->prepare("
-        SELECT pdi.*, p.name as product_name
+        SELECT
+            pdi.*,
+            p.id as product_id,
+            p.name as variant_name,
+            p.price as unit_price,
+            p.stock as current_stock,
+            pp.id as parent_id,
+            pp.name as parent_name,
+            pp.image as parent_image,
+            COALESCE(p.image, pp.image) as display_image
         FROM pending_delivery_items pdi
         JOIN products p ON pdi.product_id = p.id
+        LEFT JOIN parent_products pp ON p.parent_id = pp.id
         WHERE pdi.pending_delivery_id = ?
+        ORDER BY pp.name, p.name
     ");
     $stmt->execute([$orderId]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Get order details with customer and parent product information
+ */
+function getOrderDetails($db, $orderId)
+{
+    $stmt = $db->prepare("
+        SELECT
+            pd.*,
+            u.firstname,
+            u.lastname,
+            u.phonenumber,
+            u.email,
+            d.name as driver_name,
+            d.phone as driver_phone
+        FROM pending_delivery pd
+        LEFT JOIN users u ON pd.user_id = u.id
+        LEFT JOIN drivers d ON pd.driver_id = d.id
+        WHERE pd.id = ?
+    ");
+    $stmt->execute([$orderId]);
+
+    $order = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($order) {
+        $order['items'] = getOrderItems($db, $orderId);
+    }
+
+    return $order;
 }

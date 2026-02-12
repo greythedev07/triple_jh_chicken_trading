@@ -30,32 +30,38 @@ try {
     <link rel="stylesheet" href="css/footer_header.css">
     <style>
         :root {
-            --primary: #000000;
-            --secondary: #ff3b30;
-            --light: #f8f9fa;
-            --dark: #212529;
-            --gray: #6c757d;
+            --sunset-gradient-start: #ffb347;
+            --sunset-gradient-end: #ff6b26;
+            --rich-amber: #f18f01;
+            --buttered-sand: #ffe4c1;
+            --deep-chestnut: #7a3a12;
+            --spark-gold: #f9a219;
+            --cream-panel: #fff5e2;
+            --accent-light: #fff7e3;
+            --accent-dark: #6d3209;
+            --text-muted: rgba(109, 50, 9, 0.7);
         }
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            color: var(--dark);
-            background-color: #fff;
+            color: var(--accent-dark);
+            background: var(--buttered-sand);
             line-height: 1.6;
         }
 
         /* Hero Section */
         .hero-section {
-            background-color: var(--primary);
-            color: white;
-            padding: 4rem 0;
+            background: linear-gradient(180deg, var(--sunset-gradient-start), var(--sunset-gradient-end));
+            color: var(--accent-dark);
+            padding: 4rem 2rem;
             text-align: center;
+            box-shadow: inset 0 0 40px rgba(255, 255, 255, 0.4);
         }
 
         .hero-title {
             font-size: 2.5rem;
             font-weight: 800;
-            margin-bottom: 1rem;
+            margin-block: 2rem 1rem;
         }
 
         .hero-subtitle {
@@ -198,21 +204,26 @@ try {
             margin-bottom: 0;
         }
 
-        .btn-primary {
-            background-color: var(--primary);
-            border-color: var(--primary);
-            padding: 0.75rem 2rem;
-            font-weight: 500;
-            border-radius: 50px;
-            transition: all 0.3s;
+        .btn-amber-primary,
+        .btn-amber-secondary {
+            border: none;
+            border-radius: 30px;
+            padding: 0.65rem 1.5rem;
+            font-weight: 600;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
-        .btn-primary:hover {
-            background-color: #333;
-            border-color: #333;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        .btn-amber-primary {
+            background: linear-gradient(180deg, var(--sunset-gradient-start), var(--sunset-gradient-end));
+            color: var(--accent-dark);
+            box-shadow: 0 8px 20px rgba(255, 153, 0, 0.35);
         }
+
+        .btn-amber-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 30px rgba(255, 153, 0, 0.45);
+        }
+
 
         /* Responsive Adjustments */
         @media (max-width: 768px) {
@@ -296,7 +307,7 @@ try {
     <?php endif; ?>
 
     <!-- Hero Section -->
-    <section class="py-5" style="padding-top: 76px !important; background: var(--primary); color: white;">
+    <section class="hero-section py-5" style="padding-top: 76px !important;">
         <div class="container text-center">
             <h1 class="hero-title">About Us</h1>
             <p class="hero-subtitle">We are committed to providing the highest quality chicken products with exceptional
@@ -306,7 +317,7 @@ try {
 
 
     <div class="text-center mt-4">
-        <a href="dashboard.php" class="btn btn-primary">Shop Now</a>
+        <a href="dashboard.php" class="btn btn-amber-primary">Shop Now</a>
     </div>
 
     <!-- Mission, About, Vision Cards -->

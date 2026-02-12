@@ -18,13 +18,13 @@ $current_page = max(1, (int) ($_GET['page'] ?? 1));
 $offset = ($current_page - 1) * $items_per_page;
 
 try {
-  // Get total count for pagination
-  $countStmt = $db->query("SELECT COUNT(*) FROM products");
+  // Get total count of parent products with active variants
+  $countStmt = $db->query("SELECT COUNT(DISTINCT pp.id) FROM parent_products pp INNER JOIN products p ON pp.id = p.parent_id WHERE p.is_active = 1");
   $total_products = (int) $countStmt->fetchColumn();
-  $total_pages = ceil($total_products / $items_per_page);
+  $total_pages = $items_per_page > 0 ? ceil($total_products / $items_per_page) : 0;
 
-  // Get products for current page
-  $stmt = $db->query("SELECT id, name, price, stock, image FROM products ORDER BY id DESC LIMIT $items_per_page OFFSET $offset");
+  // Get parent products with active variants, price ranges, and total stock for current page
+  $stmt = $db->query("\n    SELECT \n      pp.id,\n      pp.name,\n      pp.description,\n      pp.image,\n      MIN(p.price) as min_price,\n      MAX(p.price) as max_price,\n      SUM(p.stock) as total_stock,\n      (\n        SELECT COALESCE(SUM(pdi.quantity), 0)\n        FROM products child\n        JOIN pending_delivery_items pdi ON pdi.product_id = child.id\n        JOIN pending_delivery pd ON pdi.pending_delivery_id = pd.id\n        WHERE child.parent_id = pp.id\n        AND child.is_active = 1\n        AND pd.status IN ('to be delivered', 'out for delivery', 'assigned', 'picked_up')\n      ) + (\n        SELECT COALESCE(SUM(hdi.quantity), 0)\n        FROM products child\n        JOIN history_of_delivery_items hdi ON hdi.product_id = child.id\n        JOIN history_of_delivery hod ON hdi.history_id = hod.id\n        WHERE child.parent_id = pp.id\n        AND child.is_active = 1\n        AND hod.id IN (\n          SELECT MIN(id) FROM history_of_delivery\n          GROUP BY to_be_delivered_id\n        )\n      ) as total_sold\n    FROM parent_products pp\n    INNER JOIN products p ON pp.id = p.parent_id AND p.is_active = 1\n    GROUP BY pp.id, pp.name, pp.description, pp.image\n    HAVING COUNT(p.id) > 0\n    ORDER BY pp.id DESC\n    LIMIT $items_per_page OFFSET $offset\n  ");
   $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
   $products = [];
@@ -44,13 +44,25 @@ try {
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
   <link rel="stylesheet" href="css/footer_header.css">
   <style>
+    :root {
+      --sunset-gradient-start: #ffb347;
+      --sunset-gradient-end: #ff6b26;
+      --rich-amber: #f18f01;
+      --buttered-sand: #ffe4c1;
+      --deep-chestnut: #7a3a12;
+      --spark-gold: #f9a219;
+      --cream-panel: #fff5e2;
+      --accent-light: #fff7e3;
+      --accent-dark: #6d3209;
+    }
+
     html,
     body {
       height: 100%;
       margin: 0;
       font-family: "Inter", "Segoe UI", sans-serif;
-      background-color: #f8f9fb;
-      color: #222;
+      background: var(--buttered-sand);
+      color: var(--accent-dark);
       display: flex;
       flex-direction: column;
     }
@@ -68,10 +80,11 @@ try {
     }
 
     .hero-section {
-      background: #000;
-      color: #fff;
-      padding: 3rem 1rem;
+      background: linear-gradient(180deg, var(--sunset-gradient-start), var(--sunset-gradient-end));
+      color: var(--accent-dark);
+      padding: 3.5rem 1rem;
       text-align: center;
+      box-shadow: inset 0 0 40px rgba(255, 255, 255, 0.4);
     }
 
     .hero-section h1 {
@@ -81,32 +94,34 @@ try {
 
     .hero-section p {
       max-width: 640px;
-      color: #dcdcdc;
+      color: rgba(109, 50, 9, 0.85);
       margin: 0 auto;
     }
 
     .btn-white {
       background: #fff;
-      color: #000;
+      color: var(--accent-dark);
       font-weight: 600;
       border: none;
-      border-radius: 6px;
+      border-radius: 999px;
+      box-shadow: 0 8px 20px rgba(241, 143, 1, 0.25);
     }
 
     .btn-white:hover {
-      background: #f0f0f0;
-      color: #000;
+      background: #fff7e3;
+      color: var(--accent-dark);
+      box-shadow: 0 12px 28px rgba(241, 143, 1, 0.35);
     }
 
     .btn-outline-light {
-      border-color: #fff;
-      color: #fff;
-      border-radius: 6px;
+      border-color: rgba(255, 255, 255, 0.9);
+      color: var(--accent-light);
+      border-radius: 999px;
     }
 
     .btn-outline-light:hover {
-      background: #fff;
-      color: #000;
+      background: rgba(255, 255, 255, 0.9);
+      color: var(--accent-dark);
     }
 
     main.container {
@@ -122,26 +137,59 @@ try {
     }
 
     .product-card {
-      border-radius: 10px;
+      border-radius: 14px;
       overflow: hidden;
-      border: 1px solid #e7e7e7;
-      background: #fff;
+      border: 1px solid rgba(241, 143, 1, 0.35);
+      background: var(--cream-panel);
       transition: transform 0.15s ease, box-shadow 0.15s ease;
       display: flex;
       flex-direction: column;
       height: 100%;
+      box-shadow: 0 10px 26px rgba(0, 0, 0, 0.12);
+      position: relative;
+    }
+
+    .product-badge-container {
+      position: absolute;
+      top: 0.6rem;
+      left: 0.6rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      z-index: 2;
+    }
+
+    .product-badge {
+      display: inline-block;
+      padding: 0.15rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+    }
+
+    .product-badge.out-of-stock {
+      background: #dc3545;
+      color: #fff;
+    }
+
+    .product-badge.sold-count {
+      background: rgba(255, 255, 255, 0.9);
+      color: var(--accent-dark);
+      border: 1px solid rgba(241, 143, 1, 0.4);
     }
 
     .product-card:hover {
       transform: translateY(-5px);
-      box-shadow: 0 8px 22px rgba(0, 0, 0, .07);
+      box-shadow: 0 16px 38px rgba(0, 0, 0, 0.16);
     }
 
     .product-image {
       object-fit: cover;
       width: 100%;
       height: 220px;
-      background: #f0f0f0;
+      background: #fff7e3;
     }
 
     .card-body {
@@ -161,21 +209,28 @@ try {
 
     .product-price {
       font-size: 0.95rem;
-      color: #111;
+      color: #c0392b;
       margin-top: 0.5rem;
+      font-weight: 600;
     }
 
     .product-stock {
       font-size: 0.85rem;
-      color: #666;
+      color: rgba(109, 50, 9, 0.75);
     }
 
-    footer {
-      flex-shrink: 0;
-      background: #000;
-      color: #fff;
-      padding: 1.5rem 0;
-      text-align: center;
+    .product-card .btn-dark {
+      background: linear-gradient(180deg, var(--sunset-gradient-start), var(--sunset-gradient-end));
+      border: none;
+      border-radius: 999px;
+      font-weight: 600;
+      color: var(--accent-dark);
+      box-shadow: 0 10px 24px rgba(241, 143, 1, 0.35);
+    }
+
+    .product-card .btn-dark:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 14px 32px rgba(241, 143, 1, 0.45);
     }
 
     @media (max-width: 767px) {
@@ -194,24 +249,25 @@ try {
     }
 
     .pagination .page-link {
-      color: #000;
-      border: 1px solid #dee2e6;
+      color: var(--accent-dark);
+      border: 1px solid rgba(0, 0, 0, 0.12);
       padding: 0.5rem 0.75rem;
       margin: 0 2px;
       border-radius: 6px;
       text-decoration: none;
       transition: all 0.2s ease;
+      background: rgba(255, 255, 255, 0.9);
     }
 
     .pagination .page-link:hover {
-      background-color: #f8f9fa;
-      border-color: #000;
-      color: #000;
+      background-color: rgba(255, 255, 255, 0.95);
+      border-color: var(--rich-amber);
+      color: var(--accent-dark);
     }
 
     .pagination .page-item.active .page-link {
-      background-color: #000;
-      border-color: #000;
+      background: linear-gradient(180deg, var(--sunset-gradient-start), var(--sunset-gradient-end));
+      border-color: var(--rich-amber);
       color: #fff;
     }
 
@@ -296,25 +352,43 @@ try {
       <?php endif; ?>
 
       <?php foreach ($products as $prod):
-        $imgUrl = '';
-        if (!empty($prod['image'])) {
-          $imgUrl = $prod['image'];
-          if (!preg_match('#^(.+/).+#', $imgUrl)) {
-            $imgUrl = 'img/' . ltrim($imgUrl, '/');
-          }
-        } else {
-          $imgUrl = 'img/no-image.png';
+        $imgUrl = !empty($prod['image']) ? $prod['image'] : 'img/no-image.png';
+        if (!preg_match('#^(.+/).+#', $imgUrl)) {
+          $imgUrl = 'img/' . ltrim($imgUrl, '/');
         }
+
+        $totalStock = (int) ($prod['total_stock'] ?? 0);
+        $totalSold = (int) ($prod['total_sold'] ?? 0);
+        $minPrice = (float) ($prod['min_price'] ?? 0);
+        $maxPrice = (float) ($prod['max_price'] ?? 0);
+        $hasVariants = $minPrice !== $maxPrice;
         ?>
         <div class="product-card">
+          <?php if ($totalStock <= 0): ?>
+            <div class="product-badge-container">
+              <span class="product-badge out-of-stock">Out of Stock</span>
+            </div>
+          <?php endif; ?>
           <img src="<?= htmlspecialchars($imgUrl) ?>" alt="<?= htmlspecialchars($prod['name']) ?>" class="product-image">
           <div class="card-body">
             <div>
               <div class="product-title"><?= htmlspecialchars($prod['name']) ?></div>
-              <div class="product-price">₱<?= number_format($prod['price'], 2) ?></div>
-              <div class="product-stock">Stock: <?= (int) $prod['stock'] ?></div>
+              <div class="product-price">
+                <?php if ($hasVariants): ?>
+                  ₱<?= number_format($minPrice, 2) ?> - ₱<?= number_format($maxPrice, 2) ?>
+                <?php else: ?>
+                  ₱<?= number_format($minPrice, 2) ?>
+                <?php endif; ?>
+              </div>
+              <div class="product-stock">
+                <?php if ($totalStock > 0): ?>
+                  Stock: <?= $totalStock ?> &bull; Sold: <?= $totalSold ?>
+                <?php else: ?>
+                  <span class="text-danger">Out of Stock</span>
+                <?php endif; ?>
+              </div>
             </div>
-            <a href="useraccounts/login.php" class="btn btn-dark mt-3 w-100">Login to Add to Cart</a>
+            <a href="useraccounts/login.php" class="btn btn-dark mt-3 w-100">View Details</a>
           </div>
         </div>
       <?php endforeach; ?>

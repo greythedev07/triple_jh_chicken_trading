@@ -22,7 +22,7 @@ try {
 try {
     // Fetch active orders (not delivered)
     $stmt = $db->prepare("
-        SELECT 
+        SELECT
             pd.id AS order_id,
             pd.order_number,
             pd.payment_method,
@@ -31,7 +31,8 @@ try {
             pd.total_amount,
             pd.date_requested,
             pd.driver_id,
-            d.name AS driver_name
+            d.name AS driver_name,
+            d.profile_picture AS driver_profile_picture
         FROM pending_delivery pd
         LEFT JOIN drivers d ON pd.driver_id = d.id
         WHERE pd.user_id = ?
@@ -43,7 +44,7 @@ try {
 
     // Fetch completed orders from history_of_delivery table
     $completedStmt = $db->prepare("
-        SELECT 
+        SELECT
             h.id AS order_id,
             h.order_number,
             h.payment_method,
@@ -52,7 +53,8 @@ try {
             (SELECT SUM(hdi.quantity * hdi.price) FROM history_of_delivery_items hdi WHERE hdi.history_id = h.id) AS total_amount,
             h.created_at AS date_requested,
             h.driver_id,
-            d.name AS driver_name
+            d.name AS driver_name,
+            d.profile_picture AS driver_profile_picture
         FROM history_of_delivery h
         LEFT JOIN drivers d ON h.driver_id = d.id
         WHERE h.user_id = ?
@@ -61,12 +63,26 @@ try {
     $completedStmt->execute([$user_id]);
     $completedOrders = $completedStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Fetch order items for active orders
+    // Fetch order items for active orders with parent product info
     $orderItems = [];
     $itemStmt = $db->prepare("
-        SELECT p.name, p.image, p.price, p.id AS product_id, pdi.quantity
+        SELECT
+            p.name,
+            p.image,
+            p.price,
+            p.id AS product_id,
+            pdi.quantity,
+            pp.id AS parent_id,
+            pp.name AS parent_name,
+            pp.image AS parent_image,
+            CASE
+                WHEN p.image IS NOT NULL AND p.image != '' THEN CONCAT('items/', p.image)
+                WHEN pp.image IS NOT NULL AND pp.image != '' THEN CONCAT('parent_products/', pp.image)
+                ELSE NULL
+            END AS display_image
         FROM pending_delivery_items pdi
         JOIN products p ON pdi.product_id = p.id
+        LEFT JOIN parent_products pp ON p.parent_id = pp.id
         WHERE pdi.pending_delivery_id = ?
     ");
 
@@ -75,12 +91,26 @@ try {
         $orderItems[$order['order_id']] = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    // Fetch order items for completed orders
+    // Fetch order items for completed orders with parent product info
     $completedOrderItems = [];
     $completedItemStmt = $db->prepare("
-        SELECT p.name, p.image, p.price, p.id AS product_id, hdi.quantity
+        SELECT
+            p.name,
+            p.image,
+            p.price,
+            p.id AS product_id,
+            hdi.quantity,
+            pp.id AS parent_id,
+            pp.name AS parent_name,
+            pp.image AS parent_image,
+            CASE
+                WHEN p.image IS NOT NULL AND p.image != '' THEN CONCAT('items/', p.image)
+                WHEN pp.image IS NOT NULL AND pp.image != '' THEN CONCAT('parent_products/', pp.image)
+                ELSE NULL
+            END AS display_image
         FROM history_of_delivery_items hdi
         JOIN products p ON hdi.product_id = p.id
+        LEFT JOIN parent_products pp ON p.parent_id = pp.id
         WHERE hdi.history_id = ?
     ");
 
@@ -103,13 +133,32 @@ try {
     <link rel="stylesheet" href="../css/footer_header.css">
 
     <style>
+        :root {
+            --sunset-gradient-start: #ffb347;
+            --sunset-gradient-end: #ff6b26;
+            --rich-amber: #f18f01;
+            --buttered-sand: #ffe4c1;
+            --deep-chestnut: #7a3a12;
+            --spark-gold: #f9a219;
+            --cream-panel: #fff5e2;
+            --accent-light: #fff7e3;
+            --accent-lighter: #ffe9cf;
+            --accent-dark: #6d3209;
+            --navbar-text: #4e1e06;
+            --shadow-soft: rgba(0, 0, 0, 0.12);
+            --text: var(--accent-dark);
+            --text-muted: rgba(109, 50, 9, 0.65);
+            --bg-card: rgba(255, 255, 255, 0.8);
+            --panel-shadow: rgba(0, 0, 0, 0.08);
+        }
+
         html,
         body {
             height: 100%;
             margin: 0;
             font-family: "Inter", "Segoe UI", sans-serif;
-            background-color: #f8f9fb;
-            color: #222;
+            background: var(--buttered-sand);
+            color: var(--text);
             display: flex;
             flex-direction: column;
         }
@@ -124,9 +173,14 @@ try {
         main {
             flex: 1;
             display: flex;
+            flex-wrap: wrap;
             padding-bottom: 80px;
-            width: 80%;
-            margin-inline: auto;
+            width: 100%;
+            max-width: 1100px;
+            margin: 2rem auto 0;
+            align-items: flex-start;
+            justify-content: center;
+            gap: 2rem;
         }
 
         .cart-link {
@@ -137,8 +191,8 @@ try {
             position: absolute;
             top: -4px;
             right: -4px;
-            background: #ff3b30;
-            color: #fff;
+            background: var(--rich-amber);
+            color: var(--accent-light);
             font-size: 0.7rem;
             padding: 2px 6px;
             border-radius: 999px;
@@ -149,11 +203,14 @@ try {
 
         .sidebar {
             margin-top: 50px;
-            width: 250px;
-            background: #fff;
-            border-right: 1px solid #eee;
-            padding: 2rem 0;
-            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.05);
+            flex: 0 0 250px;
+            width: 100%;
+            max-width: 250px;
+            background: var(--cream-panel);
+            border-radius: 12px;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            padding: 1.5rem 0;
+            box-shadow: 0 10px 30px var(--shadow-soft);
         }
 
         .sidebar-nav {
@@ -169,29 +226,31 @@ try {
         .sidebar-nav a {
             display: block;
             padding: 1rem 2rem;
-            color: #666;
+            color: var(--text-muted);
             text-decoration: none;
             border-left: 3px solid transparent;
             transition: all 0.3s ease;
         }
 
         .sidebar-nav a:hover {
-            background: #f8f9fa;
-            color: #333;
+            background: rgba(255, 255, 255, 0.8);
+            color: var(--text);
         }
 
         .sidebar-nav a.active {
-            background: #f8f9fa;
-            color: #000;
-            border-left-color: #000;
+            background: var(--buttered-sand);
+            color: var(--accent-dark);
+            border-left-color: var(--rich-amber);
             font-weight: 600;
         }
 
         .content-area {
-            flex: 1;
+            flex: 1 1 0;
             padding: 2rem;
-            overflow-y: scroll;
-            scrollbar-width: none;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px var(--shadow-soft);
+            min-width: 320px;
         }
 
         .orders-container {
@@ -200,29 +259,21 @@ try {
         }
 
         .order-card {
-            background: #fff;
-            border-radius: 10px;
+            background: var(--bg-card);
+            border-radius: 12px;
             padding: 1.5rem;
             margin-bottom: 1.5rem;
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+            box-shadow: 0 12px 30px var(--shadow-soft);
+            border: 1px solid rgba(255, 255, 255, 0.8);
         }
 
         .order-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.08);
             padding-bottom: 0.75rem;
             margin-bottom: 1rem;
-        }
-
-
-        footer {
-            background: #000;
-            color: #fff;
-            text-align: center;
-            padding: 1rem;
-            margin-top: auto;
         }
 
         .btn-details {
@@ -235,7 +286,50 @@ try {
             align-items: center;
             margin-top: 1rem;
             padding-top: 0.75rem;
-            border-top: 1px solid #eee;
+            border-top: 1px solid rgba(0, 0, 0, 0.08);
+        }
+
+        .btn-amber-primary,
+        .btn-amber-secondary {
+            border: none;
+            border-radius: 30px;
+            padding: 0.55rem 1.5rem;
+            font-weight: 600;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .btn-amber-primary {
+            background: linear-gradient(180deg, var(--sunset-gradient-start), var(--sunset-gradient-end));
+            color: var(--accent-dark);
+            box-shadow: 0 8px 20px rgba(255, 153, 0, 0.35);
+        }
+
+        .btn-amber-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 30px rgba(255, 153, 0, 0.45);
+        }
+
+        .btn-amber-secondary {
+            background: var(--rich-amber);
+            color: var(--accent-light);
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-amber-secondary:hover {
+            background: var(--spark-gold);
+            color: var(--accent-light);
+        }
+
+        .btn-outline-dark {
+            border-color: rgba(109, 50, 9, 0.4);
+            color: var(--accent-dark);
+            background: transparent;
+        }
+
+        .btn-outline-dark:hover {
+            background: rgba(255, 255, 255, 0.2);
+            color: var(--accent-dark);
+            border-color: var(--accent-dark);
         }
 
         .tab-content {
@@ -250,16 +344,7 @@ try {
             font-size: 1.5rem;
             font-weight: 700;
             margin-bottom: 1.5rem;
-            color: #333;
-        }
-
-        footer {
-            background: #000;
-            color: #fff;
-            padding: 1.5rem 0;
-            text-align: center;
-            margin-top: auto;
-            flex-shrink: 0;
+            color: var(--accent-dark);
         }
     </style>
 </head>
@@ -368,10 +453,17 @@ try {
                                     </div>
                                 </div>
 
-                                <?php foreach ($orderItems[$oid] as $item): ?>
+                                <?php foreach ($orderItems[$oid] as $item):
+                                    $imagePath = !empty($item['parent_image']) ? '../' . $item['parent_image'] : '../img/no-image.png';
+                                    $altText = htmlspecialchars($item['name'] ?? 'Product image');
+                                ?>
                                     <div class="d-flex align-items-center mb-2">
-                                        <img src="../<?= htmlspecialchars($item['image'] ?? 'img/no-image.png') ?>" width="60"
-                                            height="60" class="rounded me-2" alt="">
+                                        <div style="width: 60px; height: 60px; overflow: hidden; border-radius: 8px;" class="me-2">
+                                            <img src="<?= $imagePath ?>"
+                                                style="width: 100%; height: 100%; object-fit: cover;"
+                                                alt="<?= $altText ?>"
+                                                onerror="this.src='../img/products/placeholder.jpg';">
+                                        </div>
                                         <div class="flex-grow-1">
                                             <?= htmlspecialchars($item['name']) ?><br>
                                             <small>Qty: <?= (int) $item['quantity'] ?> ×
@@ -382,6 +474,24 @@ try {
                                 <?php endforeach; ?>
 
                                 <hr>
+                                <?php if (!empty($order['driver_name'])): ?>
+                                <div class="driver-info d-flex align-items-center mb-2">
+                                    <div class="driver-avatar me-2" style="width: 32px; height: 32px; border-radius: 50%; overflow: hidden;">
+                                        <?php
+                                        $driverImage = !empty($order['driver_profile_picture'])
+                                            ? '../' . $order['driver_profile_picture']
+                                            : '../img/default-avatar.png';
+                                        ?>
+                                        <img src="<?= $driverImage ?>" alt="Driver" style="width: 100%; height: 100%; object-fit: cover;"
+                                             onerror="this.src='../img/default-avatar.png';">
+                                    </div>
+                                    <div class="driver-details">
+                                        <small class="text-muted">Driver: </small>
+                                        <span class="fw-medium"><?= htmlspecialchars($order['driver_name']) ?></span>
+                                    </div>
+                                </div>
+                                <?php endif; ?>
+
                                 <div class="d-flex justify-content-between small align-items-center">
                                     <span>Payment: <?= htmlspecialchars($order['payment_method']) ?></span>
                                     <div>
@@ -429,8 +539,16 @@ try {
                                             <h6>Ordered Items:</h6>
                                             <?php foreach ($orderItems[$oid] as $item): ?>
                                                 <div class="d-flex align-items-center mb-2">
-                                                    <img src="../<?= htmlspecialchars($item['image'] ?? 'img/no-image.png') ?>"
-                                                        width="60" height="60" class="me-2 rounded" alt="">
+                                                    <?php
+                                                    $imagePath = !empty($item['parent_image']) ? '../' . $item['parent_image'] : '../img/products/placeholder.jpg';
+                                                    $altText = htmlspecialchars($item['parent_name'] ?? $item['name'] ?? 'Product image');
+                                                    ?>
+                                                    <div style="width: 60px; height: 60px; overflow: hidden; border-radius: 8px;" class="me-2">
+                                                        <img src="<?= $imagePath ?>"
+                                                            style="width: 100%; height: 100%; object-fit: cover;"
+                                                            alt="<?= $altText ?>"
+                                                            onerror="this.src='../img/products/placeholder.jpg'">
+                                                    </div>
                                                     <div class="flex-grow-1">
                                                         <?= htmlspecialchars($item['name']) ?><br>
                                                         <small>Qty: <?= (int) $item['quantity'] ?> ×
@@ -442,7 +560,7 @@ try {
                                         </div>
 
                                         <div class="modal-footer">
-                                            <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                            <button class="btn btn-amber-secondary" data-bs-dismiss="modal">Close</button>
                                         </div>
                                     </div>
                                 </div>
@@ -477,10 +595,17 @@ try {
                                     </div>
                                 </div>
 
-                                <?php foreach ($completedOrderItems[$oid] as $item): ?>
+                                <?php foreach ($completedOrderItems[$oid] as $item):
+                                    $imagePath = !empty($item['parent_image']) ? $item['parent_image'] : 'img/no-image.png';
+                                    $altText = htmlspecialchars($item['name']);
+                                ?>
                                     <div class="d-flex align-items-center mb-2">
-                                        <img src="../<?= htmlspecialchars($item['image'] ?? 'img/no-image.png') ?>" width="60"
-                                            height="60" class="rounded me-2" alt="">
+                                        <div style="width: 60px; height: 60px; overflow: hidden; border-radius: 8px;" class="me-2">
+                                            <img src="../<?= $imagePath ?>"
+                                                style="width: 100%; height: 100%; object-fit: cover;"
+                                                alt="<?= $altText ?>"
+                                                onerror="this.src='../img/no-image.png'">
+                                        </div>
                                         <div class="flex-grow-1">
                                             <div class="fw-semibold"><?= htmlspecialchars($item['name']) ?></div>
                                             <small class="text-muted">Quantity: <?= $item['quantity'] ?> ×
@@ -512,6 +637,23 @@ try {
                                             <div class="row">
                                                 <div class="col-md-6">
                                                     <h6>Order Information</h6>
+                                                    <?php if (!empty($order['driver_name'])): ?>
+                                                    <div class="driver-info d-flex align-items-center mb-3">
+                                                        <div class="driver-avatar me-3" style="width: 50px; height: 50px; border-radius: 50%; overflow: hidden; border: 2px solid var(--rich-amber);">
+                                                            <?php
+                                                            $driverImage = !empty($order['driver_profile_picture'])
+                                                                ? '../' . $order['driver_profile_picture']
+                                                                : '../img/default-avatar.png';
+                                                            ?>
+                                                            <img src="<?= $driverImage ?>" alt="Driver" style="width: 100%; height: 100%; object-fit: cover;"
+                                                                 onerror="this.src='../img/default-avatar.png';">
+                                                        </div>
+                                                        <div class="driver-details">
+                                                            <p class="mb-0"><strong>Driver:</strong></p>
+                                                            <h5 class="mb-0"><?= htmlspecialchars($order['driver_name']) ?></h5>
+                                                        </div>
+                                                    </div>
+                                                    <?php endif; ?>
                                                     <p><strong>Order ID:</strong> #<?= $oid ?></p>
                                                     <p><strong>Date:</strong>
                                                         <?= date("F j, Y, g:i a", strtotime($order['date_requested'])) ?></p>
@@ -533,12 +675,20 @@ try {
                                             </div>
                                             <hr>
                                             <h6>Order Items</h6>
-                                            <?php foreach ($completedOrderItems[$oid] as $item): ?>
+                                            <?php foreach ($completedOrderItems[$oid] as $item):
+                                                $imagePath = !empty($item['parent_image']) ? '../' . $item['parent_image'] : '../img/products/placeholder.jpg';
+                                                $altText = htmlspecialchars($item['name'] ?? 'Product image');
+                                                $displayName = htmlspecialchars($item['name']);
+                                            ?>
                                                 <div class="d-flex align-items-center mb-3">
-                                                    <img src="../<?= htmlspecialchars($item['image'] ?? 'img/no-image.png') ?>"
-                                                        width="80" height="80" class="rounded me-3" alt="">
+                                                    <div style="width: 80px; height: 80px; overflow: hidden; border-radius: 8px;" class="me-3">
+                                                        <img src="<?= $imagePath ?>"
+                                                            style="width: 100%; height: 100%; object-fit: cover;"
+                                                            alt="<?= $altText ?>"
+                                                            onerror="this.src='../img/products/placeholder.jpg'">
+                                                    </div>
                                                     <div class="flex-grow-1">
-                                                        <h6 class="mb-1"><?= htmlspecialchars($item['name']) ?></h6>
+                                                        <h6 class="mb-1"><?= $displayName ?></h6>
                                                         <p class="text-muted mb-1">Quantity: <?= $item['quantity'] ?></p>
                                                         <p class="mb-0"><strong>₱<?= number_format($item['price'], 2) ?>
                                                                 each</strong></p>
@@ -569,16 +719,16 @@ try {
 
 
     <footer>
-        <div class="container text-center">
-            <div class="footer-links">
-                <a href="../dashboard.php">Shop</a>
-                <a href="../about.php">About</a>
-                <a href="../about.php">Terms</a>
-                <a href="../about.php">Privacy</a>
-            </div>
-            <p class="copyright">&copy; <?= date('Y') ?> Triple JH Chicken Trading. All rights reserved.</p>
-        </div>
-    </footer>
+    <div class="container text-center">
+      <div class="footer-links">
+        <a href="../dashboard.php">Shop</a>
+        <a href="../about.php">About</a>
+        <a href="../about.php">Terms</a>
+        <a href="../about.php">Privacy</a>
+      </div>
+      <p class="copyright">&copy; <?= date('Y') ?> Triple JH Chicken Trading. All rights reserved.</p>
+    </div>
+  </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 

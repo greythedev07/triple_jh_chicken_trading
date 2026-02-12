@@ -11,7 +11,7 @@ if (!isset($_SESSION['admin_id'])) {
 
 try {
     $stmt = $db->query("
-        SELECT 
+        SELECT
             pd.id,
             pd.order_number,
             pd.user_id,
@@ -20,6 +20,7 @@ try {
             pd.status,
             pd.total_amount,
             pd.date_requested,
+            pd.gcash_payment_screenshot,
             CONCAT(u.firstname, ' ', u.lastname) AS customer_name,
             d.name AS driver_name
         FROM pending_delivery pd

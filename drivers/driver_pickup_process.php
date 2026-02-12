@@ -37,17 +37,79 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $insert->execute([$pending_delivery_id, $driver_id, $pending['user_id'], $pending['delivery_address'], $proofPath]);
         $toBeDeliveredId = $db->lastInsertId();
 
-        // 5) Copy all items from pending to to_be_delivered
+        // 5) Copy all items from pending_delivery_items to to_be_delivered_items
         $items = $db->prepare("SELECT * FROM pending_delivery_items WHERE pending_delivery_id = ?");
         $items->execute([$pending_delivery_id]);
-        foreach ($items as $item) {
-            $insertItem = $db->prepare("INSERT INTO to_be_delivered_items (to_be_delivered_id, product_id, quantity, price) VALUES (?, ?, ?, ?)");
-            $insertItem->execute([$toBeDeliveredId, $item['product_id'], $item['quantity'], $item['price']]);
+        $items = $items->fetchAll(PDO::FETCH_ASSOC);
+
+        if (empty($items)) {
+            error_log("No items found in pending_delivery_items for pending_delivery_id: " . $pending_delivery_id);
+
+            // Try to get items directly from the cart as a fallback
+            $cartItems = $db->prepare("
+                SELECT ci.product_id, ci.quantity, p.price
+                FROM cart_items ci
+                JOIN cart c ON ci.cart_id = c.id
+                JOIN products p ON ci.product_id = p.id
+                WHERE c.pending_delivery_id = ?
+            ");
+            $cartItems->execute([$pending_delivery_id]);
+            $items = $cartItems->fetchAll(PDO::FETCH_ASSOC);
+
+            if (empty($items)) {
+                error_log("No items found in cart for pending_delivery_id: " . $pending_delivery_id);
+                header("Location: ../driver_dashboard.php?error=no_items");
+                exit;
+            }
         }
+
+        // Log the items being copied
+        error_log("Copying " . count($items) . " items to to_be_delivered_items for delivery " . $toBeDeliveredId);
+
+        // Insert items into to_be_delivered_items
+        $insertItem = $db->prepare("INSERT INTO to_be_delivered_items (to_be_delivered_id, product_id, quantity, price) VALUES (?, ?, ?, ?)");
+        $itemsInserted = 0;
+
+        foreach ($items as $item) {
+            try {
+                $result = $insertItem->execute([
+                    $toBeDeliveredId,
+                    $item['product_id'],
+                    $item['quantity'],
+                    $item['price']
+                ]);
+
+                if ($result) {
+                    $itemsInserted++;
+                    error_log(sprintf(
+                        "Inserted item - Product ID: %d, Quantity: %d, Price: %.2f",
+                        $item['product_id'],
+                        $item['quantity'],
+                        $item['price']
+                    ));
+                } else {
+                    $errorInfo = $insertItem->errorInfo();
+                    error_log("Failed to insert item: " . print_r($errorInfo, true));
+                }
+            } catch (PDOException $e) {
+                error_log("Error inserting item: " . $e->getMessage());
+            }
+        }
+
+        if ($itemsInserted === 0) {
+            error_log("No items were inserted into to_be_delivered_items");
+            header("Location: ../driver_dashboard.php?error=insert_failed");
+            exit;
+        }
+
+        error_log("Successfully inserted $itemsInserted items into to_be_delivered_items");
 
         // 6) Mark the pending delivery as ready to deliver
         $update = $db->prepare("UPDATE pending_delivery SET status = 'to be delivered' WHERE id = ?");
         $update->execute([$pending_delivery_id]);
+
+        // Log successful pickup
+        error_log("Successfully picked up order #$pending_delivery_id. Items copied: " . count($items));
 
         // 7) Return to dashboard
         header("Location: ../driver_dashboard.php?pickup=1");
