@@ -6,6 +6,3 @@ cmds = [
 
 [phases.install]
 cmds = ["composer install --no-dev"]
-
-[start]
-cmd = "apache2-foreground"
