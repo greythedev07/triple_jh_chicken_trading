@@ -2,9 +2,9 @@
 header('Content-Type: application/json');
 require_once('../config.php');
 
-// Enable error reporting for debugging
+// Do not output PHP warnings/notices into the response (breaks JSON parsing)
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
+ini_set('display_errors', 0);
 
 // Log the incoming request for debugging
 error_log('Edit Product Request: ' . print_r($_POST, true));

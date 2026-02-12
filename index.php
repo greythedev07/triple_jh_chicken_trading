@@ -369,7 +369,7 @@ try {
               <span class="product-badge out-of-stock">Out of Stock</span>
             </div>
           <?php endif; ?>
-          <img src="<?= htmlspecialchars($imgUrl) ?>" alt="<?= htmlspecialchars($prod['name']) ?>" class="product-image">
+          <img src="<?= htmlspecialchars($imgUrl) ?>" alt="<?= htmlspecialchars($prod['name']) ?>" class="product-image" onerror="this.onerror=null; this.src='img/products/placeholder.jpg';">
           <div class="card-body">
             <div>
               <div class="product-title"><?= htmlspecialchars($prod['name']) ?></div>

@@ -6,6 +6,16 @@ require_once __DIR__ . '/config.php';
 // Set JSON content type
 header('Content-Type: application/json');
 
+// Ensure DB is available
+if (!isset($db) || !($db instanceof PDO)) {
+    http_response_code(500);
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Database connection is not available.'
+    ]);
+    exit;
+}
+
 // Check if user is logged in
 if (!isset($_SESSION['user_id'])) {
     die(json_encode([
@@ -26,17 +36,8 @@ if ($productId <= 0 && $parentId <= 0) {
 }
 
 try {
-    // Direct database connection
-    $pdo = new PDO(
-        'mysql:host=localhost;dbname=commissioned_app_database;charset=utf8mb4',
-        'root',
-        '',
-        [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES => false,
-        ]
-    );
+    // Use shared PDO connection from config.php
+    $pdo = $db;
 
     // Prepare the query based on whether we have a product ID or parent ID
     if ($productId > 0) {
@@ -268,7 +269,22 @@ try {
                 'image' => $product['parent_image'] ?? null,
                 'description' => $product['parent_description'] ?? null
             ] : null,
-            'image' => !empty($product['parent_image']) ? "uploads/items/" . $product['parent_image'] : 'img/products/placeholder.jpg',
+            'image' => (function () use ($product) {
+                $raw = $product['parent_image'] ?? $product['image'] ?? '';
+                $raw = (string)$raw;
+                if ($raw === '') {
+                    return 'img/products/placeholder.jpg';
+                }
+                // If DB already stored a relative path like uploads/items/xxx.jpg, return as-is.
+                if (preg_match('#^uploads/#', $raw)) {
+                    return $raw;
+                }
+                // If DB stored only filename, assume it belongs to uploads/items/
+                if (strpos($raw, '/') === false && strpos($raw, '\\') === false) {
+                    return 'uploads/items/' . $raw;
+                }
+                return $raw;
+            })(),
             'variants' => array_map(function($item) use ($product) {
                 return [
                     'id' => (int)$item['id'],
