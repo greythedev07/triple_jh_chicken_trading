@@ -7,24 +7,13 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
 
-// Define upload paths
 $railwayUploads = '/app/uploads';
 $projectUploads = __DIR__ . '/uploads';
 
-// Ensure the Railway uploads directory exists and is writable
 if (is_dir($railwayUploads)) {
-    // If the directory exists in /app/uploads, use it directly
+    // Prefer Railway volume for persistent uploads.
     if (!is_dir($projectUploads) && !is_link($projectUploads)) {
-        // Try to create a symlink first
-        if (@symlink($railwayUploads, $projectUploads) === false) {
-            // If symlink fails, create the directory locally
-            @mkdir($projectUploads, 0755, true);
-        }
-    }
-} else {
-    // Fallback to local uploads directory if /app/uploads doesn't exist
-    if (!is_dir($projectUploads)) {
-        @mkdir($projectUploads, 0755, true);
+        @symlink($railwayUploads, $projectUploads);
     }
 }
 
@@ -88,30 +77,17 @@ function checkDatabaseConnection() {
 // Define basic upload paths for the system
 define('UPLOAD_PATH', __DIR__ . '/uploads/');
 
-// Define required upload subdirectories
 $requiredUploadDirs = [
-    'items',
-    'deliveries',
-    'pickups',
-    'qr_codes',
-    'gcash_screenshots',
+    __DIR__ . '/uploads/items/',
+    __DIR__ . '/uploads/deliveries/',
+    __DIR__ . '/uploads/pickups/',
+    __DIR__ . '/uploads/qr_codes/',
+    __DIR__ . '/uploads/gcash_screenshots/',
 ];
 
-// Create required subdirectories with proper permissions
-foreach ($requiredUploadDirs as $subdir) {
-    $dir = rtrim($projectUploads, '/') . '/' . ltrim($subdir, '/');
+foreach ($requiredUploadDirs as $dir) {
     if (!is_dir($dir)) {
-        // Try with 755 permissions first (more secure)
-        if (!@mkdir($dir, 0755, true) && !is_dir($dir)) {
-            // If that fails, try with 777 (less secure but might work with restrictive environments)
-            @mkdir($dir, 0777, true);
-            @chmod($dir, 0777);
-        }
-    } else {
-        // Ensure the directory is writable
-        if (!is_writable($dir)) {
-            @chmod($dir, 0755);
-        }
+        @mkdir($dir, 0777, true);
     }
 }
 ?>
