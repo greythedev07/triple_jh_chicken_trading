@@ -2,9 +2,9 @@
 // config.php - Updated for Railway deployment
 
 // Get database credentials from environment variables
-$db_host = getenv('DB_HOST') ?: 'mysql.railway.internal';
+$db_host = getenv('DB_HOST') ?: 'localhost';
 $db_port = getenv('DB_PORT') ?: '3306';
-$db_name = getenv('DB_NAME') ?: 'railway';
+$db_name = getenv('DB_NAME') ?: 'commissioned_app_database';
 $db_user = getenv('DB_USER') ?: 'root';
 $db_pass = getenv('DB_PASSWORD') ?: '';
 
