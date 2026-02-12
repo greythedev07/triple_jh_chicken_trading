@@ -4,3 +4,4 @@ builder = "NIXPACKS"
 [deploy]
 healthcheckPath = "/health.php"
 healthcheckTimeout = 100
+restartPolicyType = "ON_FAILURE"
