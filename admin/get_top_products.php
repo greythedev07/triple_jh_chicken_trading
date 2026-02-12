@@ -9,13 +9,18 @@ if (!isset($_SESSION['admin_id'])) {
 }
 
 try {
+    // Get products from both completed and pending deliveries, even without reviews
     $stmt = $db->prepare("
         SELECT
             COALESCE(pp.id, p.id) as display_id,
             COALESCE(pp.name, p.name) as name,
-            COALESCE(SUM(od.quantity), 0) as total_sold,
+            COALESCE(SUM(CASE
+                WHEN hdi.quantity IS NOT NULL THEN hdi.quantity
+                WHEN pdi.quantity IS NOT NULL THEN pdi.quantity
+                ELSE 0
+            END), 0) as total_sold,
             COALESCE(
-                (SELECT AVG(rating)
+                (SELECT AVG(pr.rating)
                  FROM product_reviews pr
                  WHERE pr.product_id = p.id OR (p.parent_id IS NOT NULL AND pr.product_id = p.parent_id)),
                 0
@@ -29,15 +34,29 @@ try {
         FROM
             products p
             LEFT JOIN parent_products pp ON p.parent_id = pp.id
-            LEFT JOIN order_details od ON p.id = od.product_id
-            LEFT JOIN orders o ON od.order_id = o.id
-        WHERE
-            o.status IN ('completed', 'delivered')
+
+            -- Get quantities from history of delivered items
+            LEFT JOIN (
+                SELECT hdi.product_id, hdi.quantity
+                FROM history_of_delivery_items hdi
+                JOIN history_of_delivery hod ON hdi.history_id = hod.id
+                WHERE hod.status = 'delivered'
+            ) hdi ON p.id = hdi.product_id
+
+            -- Get quantities from pending deliveries that are completed
+            LEFT JOIN (
+                SELECT pdi.product_id, pdi.quantity
+                FROM pending_delivery_items pdi
+                JOIN pending_delivery pd ON pdi.pending_delivery_id = pd.id
+                WHERE pd.status = 'completed'
+            ) pdi ON p.id = pdi.product_id
+
         GROUP BY
             COALESCE(pp.id, p.id), COALESCE(pp.name, p.name)
+        HAVING
+            total_sold > 0
         ORDER BY
-            total_sold DESC,
-            average_rating DESC
+            total_sold DESC
         LIMIT 3
     ");
     $stmt->execute();
