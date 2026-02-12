@@ -1,64 +1,25 @@
 <?php
-// Enable error reporting
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+// config.php - Updated for Railway deployment
 
-// Database configuration
-$db_host = 'localhost';
-$db_port = '3306';
-$db_name = 'commissioned_app_database';
-$db_user = 'root';
-$db_pass = '';
+// Get database credentials from environment variables
+$db_host = getenv('DB_HOST') ?: 'localhost';
+$db_port = getenv('DB_PORT') ?: '3306';
+$db_name = getenv('DB_NAME') ?: 'commissioned_app_database';
+$db_user = getenv('DB_USER') ?: 'root';
+$db_pass = getenv('DB_PASSWORD') ?: '';
 
-// Function to check database connection
-function checkDatabaseConnection() {
-    global $db_host, $db_port, $db_name, $db_user, $db_pass;
-
-    try {
-        $dsn = "mysql:host={$db_host};port={$db_port};dbname={$db_name};charset=utf8mb4";
-        $options = [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES => false,
-        ];
-
-        $db = new PDO($dsn, $db_user, $db_pass, $options);
-        return $db;
-
-    } catch (PDOException $e) {
-        $errorInfo = [
-            'error' => $e->getMessage(),
-            'code' => $e->getCode(),
-            'connection' => [
-                'host' => $db_host,
-                'port' => $db_port,
-                'database' => $db_name,
-                'user' => $db_user,
-                'password' => $db_pass ? '***' : '(empty)'
-            ],
-            'pdo_available' => class_exists('PDO') ? 'Yes' : 'No',
-            'pdo_drivers' => class_exists('PDO') ? PDO::getAvailableDrivers() : []
-        ];
-
-        error_log('Database connection failed: ' . print_r($errorInfo, true));
-
-        if (php_sapi_name() === 'cli') {
-            die("Database connection failed: " . $e->getMessage() . "\n");
-        }
-
-        if (strpos($_SERVER['REQUEST_URI'], '/get_product_details.php') !== false) {
-            header('Content-Type: application/json');
-            die(json_encode([
-                'status' => 'error',
-                'message' => 'Database connection failed',
-                'error' => $e->getMessage(),
-                'debug' => $errorInfo
-            ]));
-        }
-
-        die('Database connection failed. Please check the configuration.');
-    }
+try {
+    $dsn = "mysql:host={$db_host};port={$db_port};dbname={$db_name};charset=utf8mb4";
+    $db = new PDO($dsn, $db_user, $db_pass);
+    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    error_log("Database connection failed: " . $e->getMessage());
+    die("Database connection failed. Please contact support.");
 }
 
-// Initialize database connection
-$db = checkDatabaseConnection();
+function checkDatabaseConnection() {
+    global $db;
+    return $db;
+}
+?>

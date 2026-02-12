@@ -1,0 +1,28 @@
+# .htaccess
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # Prevent access to sensitive files
+    RewriteRule ^config\.php$ - [F,L]
+    RewriteRule ^database_setup\.sql$ - [F,L]
+
+    # Allow access to assets
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule \.(css|js|jpg|jpeg|png|gif|svg|woff|woff2|ttf|eot)$ - [L]
+
+    # Existing routes work as-is (no changes needed)
+</IfModule>
+
+# Security headers
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+</IfModule>
+
+# PHP settings
+php_value upload_max_filesize 10M
+php_value post_max_size 10M
+php_value max_execution_time 300
+php_value session.gc_maxlifetime 3600
