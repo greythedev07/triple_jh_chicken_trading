@@ -13,25 +13,13 @@ try {
         SELECT
             COALESCE(pp.id, p.id) as display_id,
             COALESCE(pp.name, p.name) as name,
-            COALESCE(SUM(ai.quantity_sold), 0) AS total_sold,
+            COALESCE(SUM(hdi.quantity), 0) AS total_sold,
             COALESCE(r.avg_rating, 0) AS average_rating,
             COALESCE(r.review_count, 0) AS review_count
         FROM products p
         LEFT JOIN parent_products pp ON p.parent_id = pp.id
-        LEFT JOIN (
-            SELECT product_id, quantity AS quantity_sold
-            FROM pending_delivery_items pdi
-            JOIN pending_delivery pd ON pdi.pending_delivery_id = pd.id
-            WHERE pd.status IN ('to be delivered', 'out for delivery', 'assigned', 'picked_up')
-            UNION ALL
-            SELECT product_id, quantity AS quantity_sold
-            FROM history_of_delivery_items hdi
-            JOIN history_of_delivery hod ON hdi.history_id = hod.id
-            WHERE hod.id IN (
-                SELECT MIN(id) FROM history_of_delivery
-                GROUP BY to_be_delivered_id
-            )
-        ) AS ai ON p.id = ai.product_id
+        LEFT JOIN history_of_delivery_items hdi ON p.id = hdi.product_id
+        LEFT JOIN history_of_delivery hod ON hdi.history_id = hod.id
         LEFT JOIN (
             SELECT
                 COALESCE(p.parent_id, pr.product_id) as display_product_id,
@@ -41,6 +29,7 @@ try {
             LEFT JOIN products p ON pr.product_id = p.id
             GROUP BY COALESCE(p.parent_id, pr.product_id)
         ) AS r ON COALESCE(p.parent_id, p.id) = r.display_product_id
+        WHERE hod.id IS NOT NULL
         GROUP BY COALESCE(pp.id, p.id), COALESCE(pp.name, p.name)
         ORDER BY total_sold DESC, average_rating DESC
         LIMIT 3

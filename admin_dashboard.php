@@ -2185,6 +2185,61 @@ function viewGCashScreenshot(orderId, screenshotPath, orderNumber) {
         });
     }
 
+    // Function to load top products
+    function loadTopProducts() {
+      fetch('admin/get_top_products.php')
+        .then(res => {
+          if (!res.ok) {
+            throw new Error('Network response was not ok');
+          }
+          return res.json();
+        })
+        .then(products => {
+          const container = document.getElementById('topProducts');
+          if (!container) return;
+
+          if (products.error) {
+            container.innerHTML = `<div class="alert alert-warning">${products.error}</div>`;
+            return;
+          }
+
+          if (!products.length) {
+            container.innerHTML = '<p class="text-muted">No product data available yet.</p>';
+            return;
+          }
+
+          let html = '<div class="list-group">';
+          products.forEach((product, index) => {
+            const stars = Math.round(product.average_rating || 0);
+            const starHtml = '<i class="bi bi-star-fill text-warning"></i>'.repeat(stars) +
+                            '<i class="bi bi-star text-muted"></i>'.repeat(5 - stars);
+
+            html += `
+              <div class="list-group-item">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div>
+                    <h6 class="mb-1">${product.name}</h6>
+                    <div class="small text-muted">
+                      ${product.total_sold} sold • ${starHtml} (${product.review_count || 0})
+                    </div>
+                  </div>
+                  <span class="badge bg-primary rounded-pill">#${index + 1}</span>
+                </div>
+              </div>
+            `;
+          });
+          html += '</div>';
+          container.innerHTML = html;
+        })
+        .catch(error => {
+          console.error('Error loading top products:', error);
+          const container = document.getElementById('topProducts');
+          if (container) {
+            container.innerHTML = '<div class="alert alert-warning">Failed to load top products. Please try again later.</div>';
+          }
+        });
+    }
+
     // Load Analytics
     function loadAnalytics() {
       fetch('admin/get_sales_summary.php')
@@ -2198,6 +2253,9 @@ function viewGCashScreenshot(orderId, screenshotPath, orderNumber) {
           if (response.status !== 'success') {
             throw new Error(response.message || 'Failed to load analytics data');
           }
+
+          // Load top products after loading sales summary
+          loadTopProducts();
 
           const data = response.data;
           document.getElementById('salesSummary').innerHTML = `
