@@ -349,119 +349,117 @@ try {
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-    // Initialize cart items data
-    document.addEventListener('DOMContentLoaded', function() {
-        // Initialize cart items data
+    // Cart functionality
+    function initializeCart() {
+        // Cart items data
         const cartItemsData = {
-        <?php foreach ($cartItems as $item): ?>
-            <?= $item['cart_id'] ?>: {
-                price: <?= $item['item_price'] ?>,
-                quantity: <?= $item['quantity'] ?>
-            },
-        <?php endforeach; ?>
-    };
-
-    // Function to update order summary
-    function updateOrderSummary() {
-        let selectedCount = 0;
-        let subtotal = 0;
-
-        // Get all checkboxes
-        const checkboxes = document.querySelectorAll('.item-checkbox');
-
-        // Calculate totals based on checked items
-        checkboxes.forEach(checkbox => {
-            if (checkbox.checked) {
-                const cartId = checkbox.value;
-                if (cartItemsData[cartId]) {
-                    selectedCount++;
-                    subtotal += parseFloat(cartItemsData[cartId].price) * parseInt(cartItemsData[cartId].quantity);
-                }
+            <?php
+            foreach ($cartItems as $item) {
+                echo "{$item['cart_id']}: {";
+                echo "price: '{$item['item_price']}',";
+                echo "quantity: {$item['quantity']}";
+                echo "},\n";
             }
-        });
+            ?>
+        };
 
-        // Update UI
-        const selectedCountEl = document.getElementById('selected-count');
-        const subtotalEl = document.getElementById('subtotal-price');
-        const totalEl = document.getElementById('total-price');
-        const checkoutBtn = document.getElementById('checkout-btn');
-
-        if (selectedCountEl) selectedCountEl.textContent = selectedCount + ' item' + (selectedCount !== 1 ? 's' : '');
-        if (subtotalEl) subtotalEl.textContent = '₱' + subtotal.toFixed(2);
-        if (totalEl) totalEl.textContent = '₱' + subtotal.toFixed(2);
-
-        // Enable/disable checkout button
-        if (checkoutBtn) {
-            checkoutBtn.disabled = selectedCount === 0;
-            checkoutBtn.style.opacity = selectedCount === 0 ? '0.6' : '1';
-            checkoutBtn.style.cursor = selectedCount === 0 ? 'not-allowed' : 'pointer';
+        // Function to format price
+        function formatPrice(price) {
+            return '₱' + parseFloat(price).toFixed(2);
         }
 
-        // Update select all checkbox
+        // Function to update order summary
+        function updateOrderSummary() {
+            let selectedCount = 0;
+            let subtotal = 0;
+
+            // Get all checkboxes
+            const checkboxes = document.querySelectorAll('.item-checkbox');
+
+            // Calculate totals based on checked items
+            checkboxes.forEach(checkbox => {
+                if (checkbox.checked) {
+                    const cartId = checkbox.value;
+                    if (cartItemsData[cartId]) {
+                        selectedCount++;
+                        subtotal += parseFloat(cartItemsData[cartId].price) * parseInt(cartItemsData[cartId].quantity);
+                    }
+                }
+            });
+
+            // Update UI
+            const selectedCountEl = document.getElementById('selected-count');
+            const subtotalEl = document.getElementById('subtotal-price');
+            const totalEl = document.getElementById('total-price');
+            const checkoutBtn = document.getElementById('checkout-btn');
+
+            if (selectedCountEl) selectedCountEl.textContent = selectedCount + ' item' + (selectedCount !== 1 ? 's' : '');
+            if (subtotalEl) subtotalEl.textContent = formatPrice(subtotal);
+            if (totalEl) totalEl.textContent = formatPrice(subtotal);
+
+            // Update checkout button state
+            if (checkoutBtn) {
+                checkoutBtn.disabled = selectedCount === 0;
+                checkoutBtn.style.opacity = selectedCount === 0 ? '0.6' : '1';
+                checkoutBtn.style.cursor = selectedCount === 0 ? 'not-allowed' : 'pointer';
+            }
+
+            // Update select all checkbox
+            const selectAllCheckbox = document.getElementById('select-all');
+            if (selectAllCheckbox) {
+                const allChecked = selectedCount === checkboxes.length;
+                selectAllCheckbox.checked = allChecked;
+                selectAllCheckbox.indeterminate = selectedCount > 0 && selectedCount < checkboxes.length;
+            }
+        }
+
+        // Handle select all checkbox
         const selectAllCheckbox = document.getElementById('select-all');
         if (selectAllCheckbox) {
-            const allChecked = selectedCount === checkboxes.length;
-            selectAllCheckbox.checked = allChecked;
-            selectAllCheckbox.indeterminate = selectedCount > 0 && selectedCount < checkboxes.length;
-        }
-    }
-
-    // Handle select all checkbox
-    const selectAllCheckbox = document.getElementById('select-all');
-    if (selectAllCheckbox) {
-        selectAllCheckbox.addEventListener('change', function() {
-            const checkboxes = document.querySelectorAll('.item-checkbox');
-            checkboxes.forEach(checkbox => {
-                checkbox.checked = this.checked;
-                // Trigger change event to ensure all handlers are called
-                const event = new Event('change');
-                checkbox.dispatchEvent(event);
+            selectAllCheckbox.addEventListener('change', function() {
+                const checkboxes = document.querySelectorAll('.item-checkbox');
+                checkboxes.forEach(checkbox => {
+                    checkbox.checked = this.checked;
+                });
+                updateOrderSummary();
             });
-            updateOrderSummary();
-        });
-    }
-
-    // Handle individual item checkbox changes
-    document.addEventListener('change', function(e) {
-        if (e.target.classList.contains('item-checkbox')) {
-            updateOrderSummary();
         }
-    });
 
-    // Handle checkout button click
-    const checkoutBtn = document.getElementById('checkout-btn');
-    if (checkoutBtn) {
-        checkoutBtn.addEventListener('click', function() {
-            const selectedItems = [];
-            document.querySelectorAll('.item-checkbox:checked').forEach(checkbox => {
-                if (checkbox.checked) {
-                    selectedItems.push(checkbox.value);
-                }
-            });
-
-            if (selectedItems.length > 0) {
-                // Store selected items in sessionStorage
-                sessionStorage.setItem('selectedCartItems', JSON.stringify(selectedItems));
-                // Redirect to checkout
-                window.location.href = 'checkout/checkout.php';
-            } else {
-                showToast('Please select at least one item to proceed to checkout', 'error');
+        // Handle individual item checkbox changes
+        document.addEventListener('change', function(e) {
+            if (e.target.classList.contains('item-checkbox')) {
+                updateOrderSummary();
             }
         });
-    }
 
-        // Initialize order summary on page load
-        updateOrderSummary();
+        // Handle checkout button click
+        const checkoutBtn = document.getElementById('checkout-btn');
+        if (checkoutBtn) {
+            checkoutBtn.addEventListener('click', function() {
+                const selectedItems = [];
+                document.querySelectorAll('.item-checkbox:checked').forEach(checkbox => {
+                    selectedItems.push(checkbox.value);
+                });
 
-        // Set initial state of checkboxes and select all
-        const checkboxes = document.querySelectorAll('.item-checkbox');
-        checkboxes.forEach(checkbox => {
-            checkbox.checked = true; // Check all by default
+                if (selectedItems.length > 0) {
+                    // Store selected items in sessionStorage
+                    sessionStorage.setItem('selectedCartItems', JSON.stringify(selectedItems));
+                    // Redirect to checkout
+                    window.location.href = 'checkout/checkout.php';
+                } else {
+                    showToast('Please select at least one item to proceed to checkout', 'error');
+                }
+            });
+        }
+
+        // Initialize checkboxes as checked by default
+        document.querySelectorAll('.item-checkbox').forEach(checkbox => {
+            checkbox.checked = true;
         });
 
-        // Update the summary after setting initial state
+        // Initial update of order summary
         updateOrderSummary();
-    });
+    }
 
     // Function to update cart badge
     function updateCartBadge() {
