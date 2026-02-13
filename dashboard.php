@@ -583,9 +583,9 @@ try {
       <form class="d-flex w-100" method="GET" action="">
         <select name="sort" class="form-select me-2" onchange="this.form.submit()" style="width: auto; min-width: 180px;">
           <option value="newest" <?= $sort === 'newest' ? 'selected' : '' ?>>Newest</option>
-          <option value="name" <?= $sort === 'name' ? 'selected' : '' ?>>Name (A–Z)</option>
-          <option value="price_low" <?= $sort === 'price_low' ? 'selected' : '' ?>>Price (Low → High)</option>
-          <option value="price_high" <?= $sort === 'price_high' ? 'selected' : '' ?>>Price (High → Low)</option>
+          <option value="popular" <?= $sort === 'popular' ? 'selected' : '' ?>>Popular</option>
+          <option value="name_asc" <?= $sort === 'name_asc' ? 'selected' : '' ?>>Name (A–Z)</option>
+          <option value="name_desc" <?= $sort === 'name_desc' ? 'selected' : '' ?>>Name (Z–A)</option>
         </select>
         <div class="d-flex flex-grow-1">
           <input type="text" class="form-control me-2" name="search" placeholder="Search products..."
