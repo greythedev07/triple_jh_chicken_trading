@@ -1,5 +1,5 @@
 <?php
-// carts/cart.php - UPDATED WITH FIXED IMAGE PATHS
+// carts/cart.php - WITH SELECTIVE CHECKOUT + ORIGINAL IMAGE LOGIC
 session_start();
 require_once('../config.php');
 
@@ -11,24 +11,6 @@ if (!isset($_SESSION['user_id'])) {
 $user_id = $_SESSION['user_id'];
 $cartItems = [];
 $totalPrice = 0;
-
-// Helper function to resolve image paths correctly
-function resolveImagePath($imagePath) {
-    if (empty($imagePath)) {
-        return '../img/products/placeholder.jpg';
-    }
-
-    // Already a full URL
-    if (strpos($imagePath, 'http://') === 0 || strpos($imagePath, 'https://') === 0) {
-        return $imagePath;
-    }
-
-    // Remove any existing ../ prefix to normalize
-    $imagePath = str_replace('../', '', $imagePath);
-
-    // Add ../ prefix since we're in /carts/ directory
-    return '../' . $imagePath;
-}
 
 try {
     // Query to get cart items with product and parent product details
@@ -237,14 +219,14 @@ try {
                 <?php
                 $groupedItems = [];
 
-                // Group items by parent product
+                // Group items by parent product for better organization
                 foreach ($cartItems as $item) {
                     $parentId = $item['parent_id'] ?? 'no_parent';
                     $groupedItems[$parentId]['parent'] = [
                         'id' => $item['parent_product_id'],
                         'name' => $item['parent_name'],
-                        'image' => resolveImagePath($item['parent_image']),
-                        'product_image' => resolveImagePath($item['product_image']),
+                        'image' => !empty($item['parent_image']) ? "../" . $item['parent_image'] : '../img/products/placeholder.jpg',
+                        'product_image' => !empty($item['parent_image']) ? "../" . $item['parent_image'] : '../img/products/placeholder.jpg',
                     ];
                     $groupedItems[$parentId]['items'][] = $item;
                 }
@@ -261,8 +243,7 @@ try {
                     <div class="d-flex align-items-center">
                         <img src="<?= htmlspecialchars($parent['image']) ?>"
                              alt="<?= htmlspecialchars($parent['name']) ?>"
-                             class="me-2" style="width: 30px; height: 30px; object-fit: cover; border-radius: 4px;"
-                             onerror="this.onerror=null; this.src='../img/products/placeholder.jpg';">
+                             class="me-2" style="width: 30px; height: 30px; object-fit: cover; border-radius: 4px;">
                         <h6 class="mb-0 fw-bold"><?= htmlspecialchars($parent['name']) ?></h6>
                     </div>
                 </div>
@@ -274,16 +255,8 @@ try {
                         $subtotal = $item['quantity'] * $item['item_price'];
                         $totalPrice += $subtotal;
 
-                        // Determine image source - prioritize product image, fallback to parent, then placeholder
-                        $imgSrc = '../img/products/placeholder.jpg'; // Default
-
-                        if (!empty($item['product_image'])) {
-                            $imgSrc = resolveImagePath($item['product_image']);
-                        } elseif (!empty($parent['product_image'])) {
-                            $imgSrc = $parent['product_image'];
-                        } elseif (!empty($parent['image'])) {
-                            $imgSrc = $parent['image'];
-                        }
+                        // ORIGINAL WORKING IMAGE LOGIC - Use product image if available, otherwise fall back to parent image
+                        $imgSrc = !empty($parent['product_image']) ? $parent['product_image'] : $parent['image'];
 
                         // Stock status
                         $stockClass = 'in-stock';
@@ -311,8 +284,7 @@ try {
                         <img src="<?= htmlspecialchars($imgSrc) ?>"
                              alt="<?= htmlspecialchars($item['product_name']) ?>"
                              class="cart-img"
-                             onerror="console.error('Image failed to load:', this.src); this.onerror=null; this.src='../img/products/placeholder.jpg';"
-                             onload="console.log('Image loaded successfully:', this.src)">
+                             onerror="this.src='../img/products/placeholder.jpg'">
 
                         <div class="cart-item-details">
                             <div class="cart-item-title">
@@ -445,9 +417,6 @@ try {
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-    // Enable console logging for debugging images
-    console.log('Cart page loaded - Image debugging enabled');
-
     // Cart items data from PHP
     const cartItemsData = {
         <?php
@@ -706,8 +675,6 @@ try {
 
         // Initial summary update
         updateOrderSummary();
-
-        console.log('Cart initialized with', Object.keys(cartItemsData).length, 'items');
     });
 </script>
 </body>
