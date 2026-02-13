@@ -18,6 +18,9 @@ try {
     $stock = (int)$_POST['stock'];
     $weight = trim($_POST['weight']);
 
+    // Remove any non-numeric characters except decimal point for validation
+    $numericWeight = (float) preg_replace('/[^0-9.]/', '', $weight);
+
     // Get parent's image path
     $parent = $db->prepare("SELECT image FROM parent_products WHERE id = ?");
     $parent->execute([$parentId]);
@@ -29,6 +32,10 @@ try {
 
     if ($stock < 0) {
         throw new Exception('Stock cannot be negative');
+    }
+
+    if ($numericWeight <= 0) {
+        throw new Exception('Weight must be greater than zero');
     }
 
     // Check if parent exists
