@@ -224,6 +224,12 @@ try {
                         }
                 ?>
                 <div class="cart-item" id="cart-item-<?= $item['cart_id'] ?>">
+                    <div class="form-check mb-2">
+                        <input class="form-check-input item-checkbox" type="checkbox" value="<?= $item['cart_id'] ?>" id="item-<?= $item['cart_id'] ?>" checked>
+                        <label class="form-check-label" for="item-<?= $item['cart_id'] ?>">
+                            Select this item
+                        </label>
+                    </div>
                     <div class="cart-item-header">
                         <img src="<?= htmlspecialchars($imgSrc) ?>"
                              class="cart-img"
@@ -309,20 +315,31 @@ try {
             </div>
 
             <div class="col-lg-4">
-                <div class="card border-0 shadow-sm p-4" style="background: white; border-radius: 15px;">
+                <div class="card border-0 shadow-sm p-4" style="background: white; border-radius: 15px; position: sticky; top: 100px;">
                     <h4 class="fw-bold mb-4">Order Summary</h4>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Selected Items:</span>
+                        <span class="fw-bold" id="selected-count">0</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Subtotal:</span>
+                        <span class="fw-bold" id="subtotal-price">₱0.00</span>
+                    </div>
                     <div class="d-flex justify-content-between mb-3">
-                        <span>Subtotal</span>
-                        <span class="fw-bold order-summary-subtotal">₱<?= number_format($totalPrice, 2) ?></span>
+                        <span>Delivery Fee:</span>
+                        <span class="fw-bold">₱0.00</span>
                     </div>
-                    <hr>
-                    <div class="d-flex justify-content-between mb-4 fs-5 fw-bold" style="color: #d63384;">
-                        <span>Total</span>
-                        <span class="order-summary-total">₱<?= number_format($totalPrice, 2) ?></span>
+                    <div class="d-flex justify-content-between mb-3">
+                        <span>Total:</span>
+                        <span class="fw-bold" id="total-price">₱0.00</span>
                     </div>
-                    <a href="../checkout/checkout.php" class="btn btn-amber w-100 py-2 fs-5 text-decoration-none" id="checkout-button">
-                        Proceed to Checkout
-                    </a>
+                    <button id="checkout-btn" class="btn btn-primary w-100 py-2" disabled>Proceed to Checkout</button>
+                    <div class="form-check mt-2">
+                        <input class="form-check-input" type="checkbox" id="select-all">
+                        <label class="form-check-label" for="select-all">
+                            Select all items
+                        </label>
+                    </div>
                 </div>
             </div>
         </div>
@@ -332,371 +349,141 @@ try {
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-// Function to update cart badge
-function updateCartBadge() {
-    fetch('../carts/get_cart_count.php')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data.status === 'success') {
-                const cartBadge = document.querySelector('.cart-badge');
-                const cartLink = document.querySelector('a[href*="cart.php"], a[href*="cart/"]');
-
-                if (!cartLink) {
-                    console.error('Cart link not found');
-                    return;
-                }
-
-                if (data.count > 0) {
-                    if (!cartBadge) {
-                        // Create badge if it doesn't exist
-                        const badge = document.createElement('span');
-                        badge.className = 'position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger cart-badge';
-                        badge.textContent = data.count;
-                        badge.style.fontSize = '0.6rem';
-                        badge.style.padding = '0.25em 0.5em';
-                        cartLink.appendChild(badge);
-                    } else {
-                        // Update existing badge
-                        cartBadge.textContent = data.count;
-                        cartBadge.style.display = 'inline-block';
-                    }
-                } else if (cartBadge) {
-                    // Hide badge if count is 0
-                    cartBadge.style.display = 'none';
-                    // If cart is empty, redirect to empty cart page
-                    if (window.location.pathname.includes('cart.php')) {
-                        window.location.href = 'cart.php';
-                    }
-                }
-            }
-        })
-        .catch(error => console.error('Error updating cart badge:', error));
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    // Handle quantity changes with debounce
-    let updateTimeout;
-    const handleQuantityChange = (input) => {
-        const cartId = input.dataset.cartId;
-        const quantity = parseInt(input.value);
-        const min = parseInt(input.min) || 1;
-        const max = parseInt(input.max) || Infinity;
-
-        // Validate input
-        if (isNaN(quantity) || quantity < min) {
-            input.value = min;
-        } else if (quantity > max) {
-            input.value = max;
-        }
-
-        // Clear any pending update
-        clearTimeout(updateTimeout);
-
-        // Add loading class to show visual feedback
-        const quantityControls = input.closest('.quantity-controls');
-        if (quantityControls) {
-            quantityControls.classList.add('updating');
-        }
-
-        // Debounce the update to avoid too many requests
-        updateTimeout = setTimeout(() => {
-            updateCartItem(cartId, input.value);
-        }, 500);
+    // Initialize cart items data
+    const cartItemsData = {
+        <?php foreach ($cartItems as $item): ?>
+            <?= $item['cart_id'] ?>: {
+                price: <?= $item['item_price'] ?>,
+                quantity: <?= $item['quantity'] ?>
+            },
+        <?php endforeach; ?>
     };
 
-    // Handle manual input changes
-    document.querySelectorAll('.quantity-input').forEach(input => {
-        input.addEventListener('change', function() {
-            handleQuantityChange(this);
-        });
+    // Function to update order summary
+    function updateOrderSummary() {
+        let selectedCount = 0;
+        let subtotal = 0;
 
-        // Also update on input for better responsiveness
-        input.addEventListener('input', function() {
-            handleQuantityChange(this);
-        });
-    });
-
-    // Handle decrease button
-    document.querySelectorAll('.quantity-decrease').forEach(button => {
-        button.addEventListener('click', function() {
-            const input = document.querySelector(`.quantity-input[data-cart-id="${this.dataset.cartId}"]`);
-            if (parseInt(input.value) > 1) {
-                input.value = parseInt(input.value) - 1;
-                handleQuantityChange(input);
+        // Get all checked items
+        document.querySelectorAll('.item-checkbox:checked').forEach(checkbox => {
+            const cartId = checkbox.value;
+            if (cartItemsData[cartId]) {
+                selectedCount++;
+                subtotal += cartItemsData[cartId].price * cartItemsData[cartId].quantity;
             }
         });
-    });
 
-    // Handle increase button
-    document.querySelectorAll('.quantity-increase').forEach(button => {
-        button.addEventListener('click', function() {
-            const input = document.querySelector(`.quantity-input[data-cart-id="${this.dataset.cartId}"]`);
-            const max = parseInt(input.max);
-            if (isNaN(max) || parseInt(input.value) < max) {
-                input.value = parseInt(input.value) + 1;
-                handleQuantityChange(input);
-            }
+        // Update UI
+        document.getElementById('selected-count').textContent = selectedCount + ' item' + (selectedCount !== 1 ? 's' : '');
+        document.getElementById('subtotal-price').textContent = '₱' + subtotal.toFixed(2);
+        document.getElementById('total-price').textContent = '₱' + subtotal.toFixed(2);
+
+        // Enable/disable checkout button
+        document.getElementById('checkout-btn').disabled = selectedCount === 0;
+    }
+
+    // Handle select all checkbox
+    document.getElementById('select-all').addEventListener('change', function() {
+        const checkboxes = document.querySelectorAll('.item-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = this.checked;
         });
+        updateOrderSummary();
     });
 
-    // Handle remove button with SweetAlert confirmation
-    // Handle remove button with SweetAlert confirmation
-document.querySelectorAll('form[action="remove_from_cart.php"]').forEach(form => {
-    form.addEventListener('submit', function(e) {
-        e.preventDefault();
-        const form = this;
-        const cartId = this.querySelector('input[name="cart_id"]').value;
-        const productName = this.closest('.cart-item').querySelector('.cart-item-title')?.textContent || 'this item';
-
-        Swal.fire({
-            title: 'Remove Item',
-            html: `Are you sure you want to remove <strong>${productName}</strong> from your cart?`,
-            icon: 'warning',
-            showCancelButton: true,
-            showCloseButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#6c757d',
-            confirmButtonText: 'Yes, remove it!',
-            cancelButtonText: 'Cancel',
-            reverseButtons: true,
-            showClass: {
-                popup: 'swal2-show',
-                backdrop: 'swal2-backdrop-show',
-                icon: 'swal2-icon-show'
-            },
-            hideClass: {
-                popup: 'swal2-hide',
-                backdrop: 'swal2-backdrop-hide',
-                icon: 'swal2-icon-hide'
-            }
-        }).then((result) => {
-            if (result.isConfirmed) {
-                form.submit();
-            }
-        });
-    });
-});
-
-    // Function to update cart item via AJAX
-    function updateCartItem(cartId, quantity) {
-        const formData = new FormData();
-        formData.append('cart_id', cartId);
-        formData.append('quantity', quantity);
-
-        // Get the quantity controls for this item
-        const quantityControls = document.querySelector(`.quantity-input[data-cart-id="${cartId}"]`).closest('.quantity-controls');
-
-        // Show loading state
-        if (quantityControls) {
-            quantityControls.classList.add('updating');
+    // Handle individual item checkbox changes
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('item-checkbox')) {
+            const allChecked = document.querySelectorAll('.item-checkbox:not(:checked)').length === 0;
+            document.getElementById('select-all').checked = allChecked;
+            updateOrderSummary();
         }
+    });
 
-        fetch('update_cart.php', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data.status === 'success') {
-                // Update the cart badge with the new count from the server
-                const cartBadge = document.querySelector('.cart-badge');
-                if (cartBadge && typeof data.cartCount !== 'undefined') {
-                    if (data.cartCount > 0) {
-                        cartBadge.textContent = data.cartCount;
-                        cartBadge.style.display = 'inline-block';
-                    } else {
+    // Handle checkout button click
+    document.getElementById('checkout-btn').addEventListener('click', function() {
+        const selectedItems = [];
+        document.querySelectorAll('.item-checkbox:checked').forEach(checkbox => {
+            selectedItems.push(checkbox.value);
+        });
+
+        if (selectedItems.length > 0) {
+            // Store selected items in sessionStorage
+            sessionStorage.setItem('selectedCartItems', JSON.stringify(selectedItems));
+            // Redirect to checkout
+            window.location.href = 'checkout/checkout.php';
+        }
+    });
+
+    // Initialize order summary on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        updateOrderSummary();
+    });
+
+    // Function to update cart badge
+    function updateCartBadge() {
+        fetch('../carts/get_cart_count.php')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    const cartBadge = document.querySelector('.cart-badge');
+                    const cartLink = document.querySelector('a[href*="cart.php"], a[href*="cart/"]');
+
+                    if (!cartLink) {
+                        console.error('Cart link not found');
+                        return;
+                    }
+
+                    if (data.count > 0) {
+                        if (!cartBadge) {
+                            // Create badge if it doesn't exist
+                            const badge = document.createElement('span');
+                            badge.className = 'position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger cart-badge';
+                            badge.textContent = data.count;
+                            badge.style.fontSize = '0.6rem';
+                            badge.style.padding = '0.25em 0.5em';
+                            cartLink.appendChild(badge);
+                        } else {
+                            // Update existing badge
+                            cartBadge.textContent = data.count;
+                            cartBadge.style.display = 'inline-block';
+                        }
+                    } else if (cartBadge) {
+                        // Hide badge if count is 0
                         cartBadge.style.display = 'none';
+                        // If cart is empty, redirect to empty cart page
+                        if (window.location.pathname.includes('cart.php')) {
+                            window.location.href = 'cart.php';
+                        }
                     }
                 }
-
-                // Update the subtotal if it exists in the response
-                if (data.subtotal) {
-                    const subtotalElement = document.querySelector(`#cart-item-${cartId} .fw-bold.fs-5`);
-                    if (subtotalElement) {
-                        subtotalElement.textContent = '₱' + parseFloat(data.subtotal).toFixed(2);
-                    }
-                }
-
-                // Update the order summary if cartTotal is provided
-                if (data.cartTotal) {
-                    // Update the subtotal in the order summary
-                    const orderSubtotalElements = document.querySelectorAll('.order-summary-subtotal');
-                    orderSubtotalElements.forEach(element => {
-                        element.textContent = '₱' + parseFloat(data.cartTotal).toFixed(2);
-                    });
-
-                    // Update the total in the order summary
-                    const orderTotalElements = document.querySelectorAll('.order-summary-total');
-                    orderTotalElements.forEach(element => {
-                        element.textContent = '₱' + parseFloat(data.cartTotal).toFixed(2);
-                    });
-                }
-
-                // Update the total price if the element exists
-                const totalElement = document.querySelector(`.item-total[data-cart-id="${cartId}"]`);
-                if (totalElement && data.newPrice) {
-                    totalElement.textContent = data.newPrice;
-                }
-
-                // Update the cart total if the element exists
-                const cartTotalElement = document.getElementById('cart-total');
-                if (cartTotalElement && data.cartTotal) {
-                    cartTotalElement.textContent = data.cartTotal;
-                }
-
-                // Show success message with SweetAlert
-                Swal.fire({
-                    title: 'Success',
-                    text: 'Cart updated successfully',
-                    icon: 'success',
-                    toast: true,
-                    position: 'top-end',
-                    showConfirmButton: false,
-                    showCloseButton: true,
-                    timer: 3000,
-                    timerProgressBar: true,
-                    showClass: {
-                        popup: 'swal2-show',
-                        backdrop: 'swal2-backdrop-show',
-                        icon: 'swal2-icon-show'
-                    },
-                    hideClass: {
-                        popup: 'swal2-hide',
-                        backdrop: 'swal2-backdrop-hide',
-                        icon: 'swal2-icon-hide'
-                    }
-                });
-            } else {
-                Swal.fire({
-                    title: 'Error',
-                    text: data.message || 'Failed to update cart',
-                    icon: 'error',
-                    toast: true,
-                    position: 'top-end',
-                    showConfirmButton: false,
-                    showCloseButton: true,
-                    timer: 5000,
-                    timerProgressBar: true,
-                    showClass: {
-                        popup: 'swal2-show',
-                        backdrop: 'swal2-backdrop-show',
-                        icon: 'swal2-icon-show'
-                    },
-                    hideClass: {
-                        popup: 'swal2-hide',
-                        backdrop: 'swal2-backdrop-hide',
-                        icon: 'swal2-icon-hide'
-                    }
-                });
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showToast('An error occurred. Please try again.', 'error');
-        });
+            })
+            .catch(error => console.error('Error updating cart badge:', error));
     }
 
-    // Function to remove cart item
-    function removeCartItem(cartId) {
-        fetch('remove_from_cart.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: `cart_id=${cartId}`
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                // Update the cart badge
-                updateCartBadge();
+    document.addEventListener('DOMContentLoaded', function() {
+        // Handle quantity changes with debounce
+        let updateTimeout;
+        const handleQuantityChange = (input) => {
+            const cartId = input.dataset.cartId;
+            const quantity = parseInt(input.value);
+            const min = parseInt(input.min) || 1;
+            const max = parseInt(input.max) || Infinity;
 
-                // Remove the cart item from the DOM
-                const cartItem = document.getElementById(`cart-item-${cartId}`);
-                if (cartItem) {
-                    cartItem.remove();
-                }
-
-                // Update the cart total if the element exists
-                const cartTotalElement = document.getElementById('cart-total');
-                if (cartTotalElement && data.cartTotal) {
-                    cartTotalElement.textContent = data.cartTotal;
-                }
-
-                // Show success message with SweetAlert
-                Swal.fire({
-                    title: 'Removed',
-                    text: 'Item removed from cart',
-                    icon: 'success',
-                    toast: true,
-                    position: 'top-end',
-                    showConfirmButton: false,
-                    showCloseButton: true,
-                    timer: 3000,
-                    timerProgressBar: true,
-                    showClass: {
-                        popup: 'swal2-show',
-                        backdrop: 'swal2-backdrop-show',
-                        icon: 'swal2-icon-show'
-                    },
-                    hideClass: {
-                        popup: 'swal2-hide',
-                        backdrop: 'swal2-backdrop-hide',
-                        icon: 'swal2-icon-hide'
-                    }
-                });
-
-                // If no more items, show empty cart message
-                if (document.querySelectorAll('.cart-item').length === 0) {
-                    window.location.reload();
-                }
-            } else {
-                Swal.fire({
-                    title: 'Error',
-                    text: data.message || 'Failed to remove item',
-                    icon: 'error',
-                    toast: true,
-                    position: 'top-end',
-                    showConfirmButton: false,
-                    showCloseButton: true,
-                    timer: 5000,
-                    timerProgressBar: true,
-                    showClass: {
-                        popup: 'swal2-show',
-                        backdrop: 'swal2-backdrop-show',
-                        icon: 'swal2-icon-show'
-                    },
-                    hideClass: {
-                        popup: 'swal2-hide',
-                        backdrop: 'swal2-backdrop-hide',
-                        icon: 'swal2-icon-hide'
-                    }
-                });
+            // Validate input
+            if (isNaN(quantity) || quantity < min) {
+                input.value = min;
+            } else if (quantity > max) {
+                input.value = max;
             }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showToast('An error occurred. Please try again.', 'error');
-        });
-    }
 
-    // Function to show toast messages (kept for backward compatibility)
-    function showToast(message, type = 'success') {
-        Swal.fire({
-            title: type === 'success' ? 'Success' : 'Error',
-            text: message,
-            icon: type,
-            toast: true,
+            // Clear any pending update
+            clearTimeout(updateTimeout);
             position: 'top-end',
             showConfirmButton: false,
             showCloseButton: true,

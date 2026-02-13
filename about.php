@@ -157,6 +157,10 @@ try {
             background-color: #f8f9fa;
         }
 
+        .team-section .row {
+            justify-content: center;
+        }
+
         .team-member {
             text-align: center;
             margin-bottom: 2rem;
@@ -390,16 +394,16 @@ try {
             <div class="row">
                 <div class="col-md-4">
                     <div class="team-member">
-                        <img src="img/profile_pic/ceo.jpg" alt="Team Member" class="team-img">
-                        <h4>Jhemilyn Hipolito Garcia</h4>
-                        <p>CEO</p>
+                        <img src="img/profile_pic/project_manager.jpg" alt="Team Member" class="team-img">
+                        <h4>Rhinagene Soriano</h4>
+                        <p>Project Manager</p>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="team-member">
-                        <img src="img/profile_pic/project_manager.jpg" alt="Team Member" class="team-img">
-                        <h4>Rhinagene Soriano</h4>
-                        <p>Project Manager</p>
+                        <img src="img/profile_pic/ceo.jpg" alt="Team Member" class="team-img">
+                        <h4>Jhemilyn Hipolito Garcia</h4>
+                        <p>CEO</p>
                     </div>
                 </div>
             </div>
