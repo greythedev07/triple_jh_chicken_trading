@@ -21,7 +21,9 @@ $sortOptions = [
   'newest' => 'id DESC',
   'popular' => 'total_sold DESC',
   'name_asc' => 'name ASC',
-  'name_desc' => 'name DESC'
+  'name_desc' => 'name DESC',
+  'price_asc' => 'min_price ASC',
+  'price_desc' => 'max_price DESC'
 ];
 
 $sort = $_GET['sort'] ?? 'newest';
@@ -581,9 +583,11 @@ try {
 
     <div class="controls-bar">
       <form class="d-flex w-100" method="GET" action="">
-        <select name="sort" class="form-select me-2" onchange="this.form.submit()" style="width: auto; min-width: 180px;">
+        <select name="sort" class="form-select me-2" onchange="this.form.submit()" style="width: auto; min-width: 200px;">
           <option value="newest" <?= $sort === 'newest' ? 'selected' : '' ?>>Newest</option>
-          <option value="popular" <?= $sort === 'popular' ? 'selected' : '' ?>>Popular</option>
+          <option value="popular" <?= $sort === 'popular' ? 'selected' : '' ?>>Most Popular</option>
+          <option value="price_asc" <?= $sort === 'price_asc' ? 'selected' : '' ?>>Price (Low to High)</option>
+          <option value="price_desc" <?= $sort === 'price_desc' ? 'selected' : '' ?>>Price (High to Low)</option>
           <option value="name_asc" <?= $sort === 'name_asc' ? 'selected' : '' ?>>Name (A–Z)</option>
           <option value="name_desc" <?= $sort === 'name_desc' ? 'selected' : '' ?>>Name (Z–A)</option>
         </select>
