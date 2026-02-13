@@ -19,9 +19,9 @@ $offset = ($current_page - 1) * $items_per_page;
 // Sorting logic
 $sortOptions = [
   'newest' => 'id DESC',
-  'price_low' => 'price ASC',
-  'price_high' => 'price DESC',
-  'name' => 'name ASC'
+  'popular' => 'total_sold DESC',
+  'name_asc' => 'name ASC',
+  'name_desc' => 'name DESC'
 ];
 
 $sort = $_GET['sort'] ?? 'newest';
