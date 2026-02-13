@@ -664,8 +664,9 @@ $admin = $stmt->fetch(PDO::FETCH_ASSOC);
                 <input type="number" min="0" class="form-control" id="editStock" name="stock">
               </div>
               <div class="col-md-6 mb-3">
-                <label for="editWeight" class="form-label">Weight (kg) (input unit manually)</label>
-                <input type="number" step="0.01" min="0" class="form-control" id="editWeight" name="weight">
+                <label for="editWeight" class="form-label">Weight</label>
+                <input type="text" class="form-control" id="editWeight" name="weight" required>
+                <div class="form-text">e.g., 1kg, 500g, 2.5kg</div>
               </div>
             </div>
             <div class="mb-3" id="editImageGroup">
