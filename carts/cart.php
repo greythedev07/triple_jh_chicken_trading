@@ -350,7 +350,9 @@ try {
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     // Initialize cart items data
-    const cartItemsData = {
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize cart items data
+        const cartItemsData = {
         <?php foreach ($cartItems as $item): ?>
             <?= $item['cart_id'] ?>: {
                 price: <?= $item['item_price'] ?>,
@@ -364,59 +366,100 @@ try {
         let selectedCount = 0;
         let subtotal = 0;
 
-        // Get all checked items
-        document.querySelectorAll('.item-checkbox:checked').forEach(checkbox => {
-            const cartId = checkbox.value;
-            if (cartItemsData[cartId]) {
-                selectedCount++;
-                subtotal += cartItemsData[cartId].price * cartItemsData[cartId].quantity;
+        // Get all checkboxes
+        const checkboxes = document.querySelectorAll('.item-checkbox');
+
+        // Calculate totals based on checked items
+        checkboxes.forEach(checkbox => {
+            if (checkbox.checked) {
+                const cartId = checkbox.value;
+                if (cartItemsData[cartId]) {
+                    selectedCount++;
+                    subtotal += parseFloat(cartItemsData[cartId].price) * parseInt(cartItemsData[cartId].quantity);
+                }
             }
         });
 
         // Update UI
-        document.getElementById('selected-count').textContent = selectedCount + ' item' + (selectedCount !== 1 ? 's' : '');
-        document.getElementById('subtotal-price').textContent = '₱' + subtotal.toFixed(2);
-        document.getElementById('total-price').textContent = '₱' + subtotal.toFixed(2);
+        const selectedCountEl = document.getElementById('selected-count');
+        const subtotalEl = document.getElementById('subtotal-price');
+        const totalEl = document.getElementById('total-price');
+        const checkoutBtn = document.getElementById('checkout-btn');
+
+        if (selectedCountEl) selectedCountEl.textContent = selectedCount + ' item' + (selectedCount !== 1 ? 's' : '');
+        if (subtotalEl) subtotalEl.textContent = '₱' + subtotal.toFixed(2);
+        if (totalEl) totalEl.textContent = '₱' + subtotal.toFixed(2);
 
         // Enable/disable checkout button
-        document.getElementById('checkout-btn').disabled = selectedCount === 0;
+        if (checkoutBtn) {
+            checkoutBtn.disabled = selectedCount === 0;
+            checkoutBtn.style.opacity = selectedCount === 0 ? '0.6' : '1';
+            checkoutBtn.style.cursor = selectedCount === 0 ? 'not-allowed' : 'pointer';
+        }
+
+        // Update select all checkbox
+        const selectAllCheckbox = document.getElementById('select-all');
+        if (selectAllCheckbox) {
+            const allChecked = selectedCount === checkboxes.length;
+            selectAllCheckbox.checked = allChecked;
+            selectAllCheckbox.indeterminate = selectedCount > 0 && selectedCount < checkboxes.length;
+        }
     }
 
     // Handle select all checkbox
-    document.getElementById('select-all').addEventListener('change', function() {
-        const checkboxes = document.querySelectorAll('.item-checkbox');
-        checkboxes.forEach(checkbox => {
-            checkbox.checked = this.checked;
+    const selectAllCheckbox = document.getElementById('select-all');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('.item-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+                // Trigger change event to ensure all handlers are called
+                const event = new Event('change');
+                checkbox.dispatchEvent(event);
+            });
+            updateOrderSummary();
         });
-        updateOrderSummary();
-    });
+    }
 
     // Handle individual item checkbox changes
     document.addEventListener('change', function(e) {
         if (e.target.classList.contains('item-checkbox')) {
-            const allChecked = document.querySelectorAll('.item-checkbox:not(:checked)').length === 0;
-            document.getElementById('select-all').checked = allChecked;
             updateOrderSummary();
         }
     });
 
     // Handle checkout button click
-    document.getElementById('checkout-btn').addEventListener('click', function() {
-        const selectedItems = [];
-        document.querySelectorAll('.item-checkbox:checked').forEach(checkbox => {
-            selectedItems.push(checkbox.value);
+    const checkoutBtn = document.getElementById('checkout-btn');
+    if (checkoutBtn) {
+        checkoutBtn.addEventListener('click', function() {
+            const selectedItems = [];
+            document.querySelectorAll('.item-checkbox:checked').forEach(checkbox => {
+                if (checkbox.checked) {
+                    selectedItems.push(checkbox.value);
+                }
+            });
+
+            if (selectedItems.length > 0) {
+                // Store selected items in sessionStorage
+                sessionStorage.setItem('selectedCartItems', JSON.stringify(selectedItems));
+                // Redirect to checkout
+                window.location.href = 'checkout/checkout.php';
+            } else {
+                showToast('Please select at least one item to proceed to checkout', 'error');
+            }
+        });
+    }
+
+        // Initialize order summary on page load
+        updateOrderSummary();
+
+        // Set initial state of checkboxes and select all
+        const checkboxes = document.querySelectorAll('.item-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = true; // Check all by default
         });
 
-        if (selectedItems.length > 0) {
-            // Store selected items in sessionStorage
-            sessionStorage.setItem('selectedCartItems', JSON.stringify(selectedItems));
-            // Redirect to checkout
-            window.location.href = 'checkout/checkout.php';
-        }
-    });
-
-    // Initialize order summary on page load
-    document.addEventListener('DOMContentLoaded', function() {
+        // Update the summary after setting initial state
         updateOrderSummary();
     });
 
