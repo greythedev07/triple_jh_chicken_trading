@@ -402,13 +402,6 @@ try {
                         <p>CEO</p>
                     </div>
                 </div>
-                <div class="col-md-4">
-                    <div class="team-member">
-                        <img src="img/blank_pfp.jpg" alt="Team Member" class="team-img">
-                        <h4>Michael Chen</h4>
-                        <p>Head of Quality</p>
-                    </div>
-                </div>
             </div>
         </div>
     </section>
