@@ -109,6 +109,10 @@ try {
             border: 1px solid rgba(0, 0, 0, 0.05);
         }
 
+        #about-icon {
+            color: var(--rich-amber);
+        }
+
         .mission-card:hover {
             transform: translateY(-5px);
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
@@ -331,7 +335,7 @@ try {
                     <div class="card h-100 border-0 shadow-sm">
                         <div class="card-body text-center p-4">
                             <div class="mb-3">
-                                <i class="fas fa-bullseye fa-3x text-primary"></i>
+                                <i id="about-icon" class="fas fa-bullseye fa-3x text-primary"></i>
                             </div>
                             <h3 class="h4 mb-3">Mission</h3>
                             <p class="text-muted mb-0">To consistently provide our customers with the freshest,
@@ -347,7 +351,7 @@ try {
                     <div class="card h-100 border-0 shadow-sm">
                         <div class="card-body text-center p-4">
                             <div class="mb-3">
-                                <i class="fas fa-info-circle fa-3x text-primary"></i>
+                                <i id="about-icon" class="fas fa-info-circle fa-3x text-primary"></i>
                             </div>
                             <h3 class="h4 mb-3">About</h3>
                             <p class="text-muted mb-0">Triple JH Chicken Trading is a trusted name in the poultry
@@ -364,7 +368,7 @@ try {
                     <div class="card h-100 border-0 shadow-sm">
                         <div class="card-body text-center p-4">
                             <div class="mb-3">
-                                <i class="fas fa-eye fa-3x text-primary"></i>
+                                <i id="about-icon" class="fas fa-eye fa-3x text-primary"></i>
                             </div>
                             <h3 class="h4 mb-3">Vision</h3>
                             <p class="text-muted mb-0">To become the leading and most trusted online supplier of poultry
@@ -386,23 +390,16 @@ try {
             <div class="row">
                 <div class="col-md-4">
                     <div class="team-member">
-                        <img src="img/blank_pfp.jpg" alt="Team Member" class="team-img">
-                        <h4>John Smith</h4>
-                        <p>Founder & CEO</p>
+                        <img src="img/profile_pic/ceo.jpg" alt="Team Member" class="team-img">
+                        <h4>Jhemilyn Hipolito Garcia</h4>
+                        <p>CEO</p>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="team-member">
-                        <img src="img/blank_pfp.jpg" alt="Team Member" class="team-img">
-                        <h4>Sarah Johnson</h4>
-                        <p>Operations Manager</p>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="team-member">
-                        <img src="img/blank_pfp.jpg" alt="Team Member" class="team-img">
-                        <h4>Michael Chen</h4>
-                        <p>Head of Quality</p>
+                        <img src="img/profile_pic/project_manager.jpg" alt="Team Member" class="team-img">
+                        <h4>Rhinagene Soriano</h4>
+                        <p>Project Manager</p>
                     </div>
                 </div>
             </div>
@@ -422,7 +419,7 @@ try {
                                     <i class="fas fa-map-marker-alt"></i>
                                 </div>
                                 <h3>Visit Us</h3>
-                                <p>123 Poultry Street<br>Chickentown, CT 12345</p>
+                                <p>164 Galvez Compound Laura street<br>Barangay Panginay Balagtas Bulacan</p>
                             </div>
                         </div>
                         <div class="col-md-6 mb-4">
@@ -431,7 +428,7 @@ try {
                                     <i class="fas fa-phone"></i>
                                 </div>
                                 <h3>Call Us</h3>
-                                <p>+1 (555) 123-4567<br>Mon-Fri, 9am-6pm</p>
+                                <p> 09171295255<br>009685521917</p>
                             </div>
                         </div>
                     </div>
