@@ -1,5 +1,5 @@
 <?php
-// carts/cart.php - UPDATED WITH SELECTIVE CHECKOUT
+// carts/cart.php - UPDATED WITH FIXED IMAGE PATHS
 session_start();
 require_once('../config.php');
 
@@ -11,6 +11,24 @@ if (!isset($_SESSION['user_id'])) {
 $user_id = $_SESSION['user_id'];
 $cartItems = [];
 $totalPrice = 0;
+
+// Helper function to resolve image paths correctly
+function resolveImagePath($imagePath) {
+    if (empty($imagePath)) {
+        return '../img/products/placeholder.jpg';
+    }
+
+    // Already a full URL
+    if (strpos($imagePath, 'http://') === 0 || strpos($imagePath, 'https://') === 0) {
+        return $imagePath;
+    }
+
+    // Remove any existing ../ prefix to normalize
+    $imagePath = str_replace('../', '', $imagePath);
+
+    // Add ../ prefix since we're in /carts/ directory
+    return '../' . $imagePath;
+}
 
 try {
     // Query to get cart items with product and parent product details
@@ -225,7 +243,8 @@ try {
                     $groupedItems[$parentId]['parent'] = [
                         'id' => $item['parent_product_id'],
                         'name' => $item['parent_name'],
-                        'image' => !empty($item['parent_image']) ? "../" . $item['parent_image'] : '../img/products/placeholder.jpg',
+                        'image' => resolveImagePath($item['parent_image']),
+                        'product_image' => resolveImagePath($item['product_image']),
                     ];
                     $groupedItems[$parentId]['items'][] = $item;
                 }
@@ -240,9 +259,10 @@ try {
                 ?>
                 <div class="mb-3 p-3 bg-light rounded">
                     <div class="d-flex align-items-center">
-                        <img src="<?= htmlspecialchars($parent['image']) ?>" 
+                        <img src="<?= htmlspecialchars($parent['image']) ?>"
                              alt="<?= htmlspecialchars($parent['name']) ?>"
-                             class="me-2" style="width: 30px; height: 30px; object-fit: cover; border-radius: 4px;">
+                             class="me-2" style="width: 30px; height: 30px; object-fit: cover; border-radius: 4px;"
+                             onerror="this.onerror=null; this.src='../img/products/placeholder.jpg';">
                         <h6 class="mb-0 fw-bold"><?= htmlspecialchars($parent['name']) ?></h6>
                     </div>
                 </div>
@@ -254,10 +274,16 @@ try {
                         $subtotal = $item['quantity'] * $item['item_price'];
                         $totalPrice += $subtotal;
 
-                        // Determine image source
-                        $imgSrc = !empty($item['product_image']) 
-                            ? "../" . $item['product_image'] 
-                            : (!empty($parent['image']) ? $parent['image'] : '../img/products/placeholder.jpg');
+                        // Determine image source - prioritize product image, fallback to parent, then placeholder
+                        $imgSrc = '../img/products/placeholder.jpg'; // Default
+
+                        if (!empty($item['product_image'])) {
+                            $imgSrc = resolveImagePath($item['product_image']);
+                        } elseif (!empty($parent['product_image'])) {
+                            $imgSrc = $parent['product_image'];
+                        } elseif (!empty($parent['image'])) {
+                            $imgSrc = $parent['image'];
+                        }
 
                         // Stock status
                         $stockClass = 'in-stock';
@@ -276,21 +302,23 @@ try {
                 <div class="cart-item" data-cart-id="<?= $item['cart_id'] ?>">
                     <div class="cart-item-header">
                         <!-- CHECKBOX -->
-                        <input type="checkbox" 
-                               class="item-checkbox" 
-                               value="<?= $item['cart_id'] ?>" 
+                        <input type="checkbox"
+                               class="item-checkbox"
+                               value="<?= $item['cart_id'] ?>"
                                data-cart-id="<?= $item['cart_id'] ?>"
                                <?= $item['stock'] <= 0 ? 'disabled title="Out of stock"' : '' ?>>
 
-                        <img src="<?= htmlspecialchars($imgSrc) ?>" 
-                             alt="<?= htmlspecialchars($item['product_name']) ?>" 
-                             class="cart-img">
-                        
+                        <img src="<?= htmlspecialchars($imgSrc) ?>"
+                             alt="<?= htmlspecialchars($item['product_name']) ?>"
+                             class="cart-img"
+                             onerror="console.error('Image failed to load:', this.src); this.onerror=null; this.src='../img/products/placeholder.jpg';"
+                             onload="console.log('Image loaded successfully:', this.src)">
+
                         <div class="cart-item-details">
                             <div class="cart-item-title">
                                 <?= htmlspecialchars($item['product_name']) ?>
                             </div>
-                            
+
                             <?php if ($item['parent_name']): ?>
                             <div class="cart-item-variant">
                                 <i class="fas fa-tag"></i> <?= htmlspecialchars($item['parent_name']) ?>
@@ -318,21 +346,21 @@ try {
 
                     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                         <div class="quantity-controls">
-                            <button class="btn btn-sm btn-outline-secondary" 
-                                    onclick="updateQuantity(<?= $item['cart_id'] ?>, -1)" 
+                            <button class="btn btn-sm btn-outline-secondary"
+                                    onclick="updateQuantity(<?= $item['cart_id'] ?>, -1)"
                                     <?= $item['stock'] <= 0 ? 'disabled' : '' ?>>
                                 <i class="fas fa-minus"></i>
                             </button>
-                            <input type="number" 
-                                   class="form-control quantity-input" 
-                                   value="<?= $item['quantity'] ?>" 
-                                   min="1" 
-                                   max="<?= $item['stock'] ?>" 
+                            <input type="number"
+                                   class="form-control quantity-input"
+                                   value="<?= $item['quantity'] ?>"
+                                   min="1"
+                                   max="<?= $item['stock'] ?>"
                                    data-cart-id="<?= $item['cart_id'] ?>"
                                    onchange="handleQuantityChange(this)"
                                    <?= $item['stock'] <= 0 ? 'disabled' : '' ?>>
-                            <button class="btn btn-sm btn-outline-secondary" 
-                                    onclick="updateQuantity(<?= $item['cart_id'] ?>, 1)" 
+                            <button class="btn btn-sm btn-outline-secondary"
+                                    onclick="updateQuantity(<?= $item['cart_id'] ?>, 1)"
                                     <?= $item['stock'] <= 0 || $item['quantity'] >= $item['stock'] ? 'disabled' : '' ?>>
                                 <i class="fas fa-plus"></i>
                             </button>
@@ -342,7 +370,7 @@ try {
                             <div class="fw-bold" style="font-size: 1.1em; color: #d63384;">
                                 Subtotal: ₱<span class="item-subtotal" data-cart-id="<?= $item['cart_id'] ?>"><?= number_format($subtotal, 2) ?></span>
                             </div>
-                            <button class="btn btn-sm btn-outline-danger mt-2" 
+                            <button class="btn btn-sm btn-outline-danger mt-2"
                                     onclick="removeFromCart(<?= $item['cart_id'] ?>)">
                                 <i class="fas fa-trash me-1"></i> Remove
                             </button>
@@ -362,7 +390,7 @@ try {
                         <h5 class="card-title mb-4 fw-bold">
                             <i class="fas fa-receipt me-2"></i>Order Summary
                         </h5>
-                        
+
                         <div class="mb-4">
                             <div class="d-flex justify-content-between mb-3 pb-2 border-bottom">
                                 <span class="text-muted">
@@ -383,7 +411,7 @@ try {
                         <button id="checkout-btn" class="btn btn-amber w-100 py-3 mb-2" disabled>
                             <i class="fas fa-shopping-bag me-2"></i>Proceed to Checkout
                         </button>
-                        
+
                         <a href="../dashboard.php" class="btn btn-outline-amber w-100 py-2">
                             <i class="fas fa-store me-2"></i>Continue Shopping
                         </a>
@@ -417,6 +445,9 @@ try {
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
+    // Enable console logging for debugging images
+    console.log('Cart page loaded - Image debugging enabled');
+
     // Cart items data from PHP
     const cartItemsData = {
         <?php
@@ -444,7 +475,7 @@ try {
 
         checkboxes.forEach(checkbox => {
             const cartItem = checkbox.closest('.cart-item');
-            
+
             if (checkbox.checked && !checkbox.disabled) {
                 const cartId = checkbox.value;
                 if (cartItemsData[cartId]) {
@@ -470,7 +501,7 @@ try {
         const selectAllCheckbox = document.getElementById('select-all');
         const enabledCheckboxes = Array.from(checkboxes).filter(cb => !cb.disabled);
         const checkedCount = enabledCheckboxes.filter(cb => cb.checked).length;
-        
+
         selectAllCheckbox.checked = checkedCount === enabledCheckboxes.length && enabledCheckboxes.length > 0;
         selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < enabledCheckboxes.length;
     }
@@ -518,7 +549,7 @@ try {
         let newQty = parseInt(input.value) + change;
         const minQty = parseInt(input.min);
         const maxStock = parseInt(input.max);
-        
+
         if (newQty < minQty) newQty = minQty;
         if (newQty > maxStock) {
             Swal.fire({
@@ -675,6 +706,8 @@ try {
 
         // Initial summary update
         updateOrderSummary();
+
+        console.log('Cart initialized with', Object.keys(cartItemsData).length, 'items');
     });
 </script>
 </body>
